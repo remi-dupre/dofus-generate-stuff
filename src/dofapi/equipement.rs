@@ -13,7 +13,7 @@ use crate::dofapi::carac::CaracKind;
 // |_____\__, |\__,_|_| .__/ \___|_| |_| |_|\___|_| |_|\__|
 //          |_|       |_|
 
-#[derive(Copy, Clone, Deserialize, Debug)]
+#[derive(Copy, Clone, Deserialize, Debug, Eq, Hash, PartialEq)]
 pub enum ItemType {
     Amulet,
     Backpack,
@@ -33,7 +33,7 @@ pub enum ItemType {
 #[derive(Deserialize, Debug)]
 pub struct Equipement {
     #[serde(rename = "type")]
-    pub type_name: ItemType,
+    pub item_type: ItemType,
 
     #[serde(rename = "ankamaId")]
     pub ankama_id: u64,
