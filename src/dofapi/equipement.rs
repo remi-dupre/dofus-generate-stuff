@@ -1,9 +1,17 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
-use std::ops::Range;
+use std::ops::RangeInclusive;
+
+use serde::{de, Deserialize, Deserializer};
 
 use crate::dofapi::carac::CaracKind;
-use serde::{de, Deserialize, Deserializer};
+
+//  _____            _                                 _
+// | ____|__ _ _   _(_)_ __   ___ _ __ ___   ___ _ __ | |_
+// |  _| / _` | | | | | '_ \ / _ \ '_ ` _ \ / _ \ '_ \| __|
+// | |__| (_| | |_| | | |_) |  __/ | | | | |  __/ | | | |_
+// |_____\__, |\__,_|_| .__/ \___|_| |_| |_|\___|_| |_|\__|
+//          |_|       |_|
 
 #[derive(Copy, Clone, Deserialize, Debug)]
 pub enum ItemType {
@@ -21,13 +29,6 @@ pub enum ItemType {
     #[serde(rename = "Living object")]
     LivingObject,
 }
-
-//  _____            _                                 _
-// | ____|__ _ _   _(_)_ __   ___ _ __ ___   ___ _ __ | |_
-// |  _| / _` | | | | | '_ \ / _ \ '_ ` _ \ / _ \ '_ \| __|
-// | |__| (_| | |_| | | |_) |  __/ | | | | |  __/ | | | |_
-// |_____\__, |\__,_|_| .__/ \___|_| |_| |_|\___|_| |_|\__|
-//          |_|       |_|
 
 #[derive(Deserialize, Debug)]
 pub struct Equipement {
@@ -47,13 +48,29 @@ pub struct Equipement {
     pub description: String,
 
     #[serde(default, deserialize_with = "deserialize_statistics")]
-    pub statistics: HashMap<String, Range<i16>>,
+    pub statistics: HashMap<CaracKind, RangeInclusive<i16>>,
+}
+
+//  ____                      _       _ _
+// |  _ \  ___  ___  ___ _ __(_) __ _| (_)_______ _ __
+// | | | |/ _ \/ __|/ _ \ '__| |/ _` | | |_  / _ \ '__|
+// | |_| |  __/\__ \  __/ |  | | (_| | | |/ /  __/ |
+// |____/ \___||___/\___|_|  |_|\__,_|_|_/___\___|_|
+//
+
+fn deserialize_statistics<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<CaracKind, RangeInclusive<i16>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(StatisticsVisitor)
 }
 
 struct StatisticsVisitor;
 
 impl<'de> de::Visitor<'de> for StatisticsVisitor {
-    type Value = HashMap<String, Range<i16>>;
+    type Value = HashMap<CaracKind, RangeInclusive<i16>>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("A sequence of item characteristics")
@@ -74,7 +91,7 @@ impl<'de> de::Visitor<'de> for StatisticsVisitor {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum ItemLine {
-            Carac(HashMap<String, Bounds>),
+            Carac(HashMap<CaracKind, Bounds>),
             Emote { emote: String },
             Title { title: String },
         }
@@ -89,16 +106,10 @@ impl<'de> de::Visitor<'de> for StatisticsVisitor {
                         .next()
                         .expect("Invalid empty item line");
 
-                    ret.insert(
-                        carac_kind,
-                        Range {
-                            start: bounds.min.unwrap_or(0),
-                            end:   bounds
-                                .max
-                                .or(bounds.min)
-                                .map_or(0, |x| x + 1),
-                        },
-                    );
+                    let min = bounds.min.unwrap_or(0);
+                    let max = bounds.max.unwrap_or(min);
+
+                    ret.insert(carac_kind, min..=max);
                 }
                 ItemLine::Emote { emote: _ } => (),
                 ItemLine::Title { title: _ } => (),
@@ -107,16 +118,4 @@ impl<'de> de::Visitor<'de> for StatisticsVisitor {
 
         Ok(ret)
     }
-}
-
-fn deserialize_statistics<'de, D>(
-    deserializer: D,
-) -> Result<HashMap<String, Range<i16>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    // let _: Vec<HashSet<HashMap<String, HashMap<String, i64>>>> =
-    //     deserializer.deserialize_any()?;
-    deserializer.deserialize_seq(StatisticsVisitor)
-    // Ok(HashMap::new())
 }

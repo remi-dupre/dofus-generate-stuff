@@ -1,14 +1,6 @@
 pub mod dofapi;
 
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate strum_macros;
-
-extern crate regex;
 extern crate serde_json;
-extern crate strum;
 
 use crate::dofapi::equipement::Equipement;
 
