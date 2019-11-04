@@ -111,8 +111,8 @@ impl<'de> de::Visitor<'de> for StatisticsVisitor {
 
                     ret.insert(carac_kind, min..=max);
                 }
-                ItemLine::Emote { emote: _ } => (),
-                ItemLine::Title { title: _ } => (),
+                ItemLine::Emote { emote: _s } => (),
+                ItemLine::Title { title: _s } => (),
             }
         }
 

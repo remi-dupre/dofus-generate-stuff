@@ -1,21 +1,21 @@
-use std::collections::{HashMap, HashSet};
-use std::iter;
+use std::collections::HashMap;
 
 use crate::dofapi::carac::CaracKind;
 use crate::dofapi::effect::Element;
 use crate::dofapi::equipement::{Equipement, ItemType};
+use crate::rls::Blackbox;
 
-#[derive(Debug)]
-pub struct ItemSlot<'i> {
-    allowed: HashSet<ItemType>,
+#[derive(Clone, Debug)]
+pub struct ItemSlot<'a, 'i> {
+    allowed: &'a [ItemType],
     item:    Option<&'i Equipement>,
 }
 
-impl<'i> ItemSlot<'i> {
-    pub fn new(allowed: impl Iterator<Item = ItemType>) -> Self {
+impl<'a, 'i> ItemSlot<'a, 'i> {
+    pub fn new(allowed: &'a [ItemType]) -> Self {
         ItemSlot {
-            allowed: allowed.collect(),
-            item:    None,
+            allowed,
+            item: None,
         }
     }
 
@@ -26,7 +26,7 @@ impl<'i> ItemSlot<'i> {
         self.item = Some(item);
     }
 
-    pub fn get_allowed(&self) -> &HashSet<ItemType> {
+    pub fn get_allowed(&self) -> &'a [ItemType] {
         &self.allowed
     }
 
@@ -35,9 +35,9 @@ impl<'i> ItemSlot<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Character<'i> {
-    pub item_slots: Vec<ItemSlot<'i>>,
+    pub item_slots: Vec<ItemSlot<'static, 'i>>,
     pub base_stats: HashMap<CaracKind, i16>,
 }
 
@@ -45,42 +45,30 @@ impl<'i> Character<'i> {
     pub fn new() -> Self {
         Character {
             item_slots: vec![
-                ItemSlot::new(iter::once(ItemType::Hat)),
-                ItemSlot::new(
-                    vec![ItemType::Cloak, ItemType::Backpack].into_iter(),
-                ),
-                ItemSlot::new(iter::once(ItemType::Amulet)),
-                ItemSlot::new(iter::once(ItemType::Ring)),
-                ItemSlot::new(iter::once(ItemType::Ring)),
-                ItemSlot::new(iter::once(ItemType::Belt)),
-                ItemSlot::new(iter::once(ItemType::Boots)),
-                ItemSlot::new(iter::once(ItemType::Shield)),
-                ItemSlot::new(
-                    vec![ItemType::Dofus, ItemType::Trophy].into_iter(),
-                ),
-                ItemSlot::new(
-                    vec![ItemType::Dofus, ItemType::Trophy].into_iter(),
-                ),
-                ItemSlot::new(
-                    vec![ItemType::Dofus, ItemType::Trophy].into_iter(),
-                ),
-                ItemSlot::new(
-                    vec![ItemType::Dofus, ItemType::Trophy].into_iter(),
-                ),
-                ItemSlot::new(
-                    vec![ItemType::Dofus, ItemType::Trophy].into_iter(),
-                ),
-                ItemSlot::new(
-                    vec![ItemType::Dofus, ItemType::Trophy].into_iter(),
-                ),
+                ItemSlot::new(&[ItemType::Hat]),
+                ItemSlot::new(&[ItemType::Cloak, ItemType::Backpack]),
+                ItemSlot::new(&[ItemType::Amulet]),
+                ItemSlot::new(&[ItemType::Ring]),
+                ItemSlot::new(&[ItemType::Ring]),
+                ItemSlot::new(&[ItemType::Belt]),
+                ItemSlot::new(&[ItemType::Boots]),
+                ItemSlot::new(&[ItemType::Shield]),
+                ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
+                ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
+                ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
+                ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
+                ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
+                ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
             ],
             base_stats: vec![
-                (CaracKind::AP, 7),
-                (CaracKind::MP, 3),
+                (CaracKind::AP, 8),
+                (CaracKind::MP, 4),
+                (CaracKind::Range, 1),
                 (CaracKind::Stats(Element::Air), 100),
                 (CaracKind::Stats(Element::Earth), 100),
                 (CaracKind::Stats(Element::Fire), 100),
                 (CaracKind::Stats(Element::Water), 100),
+                (CaracKind::Wisdom, 100),
                 (CaracKind::Prospecting, 100),
                 (CaracKind::Pods, 1000),
             ]
@@ -89,14 +77,157 @@ impl<'i> Character<'i> {
         }
     }
 
-    pub fn get_carac(&self, carac: &CaracKind) -> i16 {
-        let base: i16 = *self.base_stats.get(carac).unwrap_or(&0);
-        let additional: i16 = self
-            .item_slots
+    pub fn get_caracs(&self) -> RawCaracs {
+        let mut ret = HashMap::new();
+
+        self.item_slots
             .iter()
-            .filter_map(|slot| slot.item)
-            .map(|item| item.statistics.get(carac).map_or(0, |x| *x.end()))
-            .sum();
-        base + additional
+            .filter_map(|slot| {
+                slot.item.map(|item| {
+                    item.statistics.iter().map(|(kind, bounds)| {
+                        (kind, std::cmp::max(bounds.start(), bounds.end()))
+                    })
+                })
+            })
+            .flatten()
+            .chain(self.base_stats.iter())
+            .for_each(|(kind, &val)| {
+                ret.entry(kind).and_modify(|x| *x += val).or_insert(val);
+            });
+
+        RawCaracs(ret)
+    }
+}
+
+//  _____                    _  _____
+// |_   _|_ _ _ __ __ _  ___| ||_   _|   _ _ __   ___
+//   | |/ _` | '__/ _` |/ _ \ __|| || | | | '_ \ / _ \
+//   | | (_| | | | (_| |  __/ |_ | || |_| | |_) |  __/
+//   |_|\__,_|_|  \__, |\___|\__||_| \__, | .__/ \___|
+//                |___/              |___/|_|
+
+pub enum RawCaracsValue<'c> {
+    Carac(&'c CaracKind),
+    Resiliance,
+}
+
+//  ____                 ____
+// |  _ \ __ ___      __/ ___|__ _ _ __ __ _  ___ ___
+// | |_) / _` \ \ /\ / / |   / _` | '__/ _` |/ __/ __|
+// |  _ < (_| |\ V  V /| |__| (_| | | | (_| | (__\__ \
+// |_| \_\__,_| \_/\_/  \____\__,_|_|  \__,_|\___|___/
+//
+
+pub struct RawCaracs<'c>(HashMap<&'c CaracKind, i16>);
+
+impl RawCaracs<'_> {
+    fn as_map(&self) -> &HashMap<&CaracKind, i16> {
+        match self {
+            RawCaracs(map) => map,
+        }
+    }
+
+    fn get_raw_carac(&self, kind: &CaracKind) -> i16 {
+        *self.as_map().get(kind).unwrap_or(&0)
+    }
+
+    pub fn get_carac(&self, kind: &CaracKind) -> i16 {
+        use CaracKind::*;
+        use Element::*;
+
+        let res = self.get_raw_carac(kind);
+        match kind {
+            AP => std::cmp::min(res, 12),
+            MP => std::cmp::min(res, 6),
+            Range => std::cmp::min(res, 6),
+            Initiative => {
+                res + [Air, Earth, Fire, Water]
+                    .iter()
+                    .map(|&elem| self.get_raw_carac(&Stats(elem)))
+                    .sum::<i16>()
+            }
+            Prospecting => res + self.get_raw_carac(&Stats(Water)) / 10,
+            Pods => res + 5 * self.get_raw_carac(&Stats(Earth)),
+            Dodge | Lock => res + self.get_raw_carac(&Stats(Air)) / 10,
+            APReduction | APResistance | MPReduction | MPResistance => {
+                res + self.get_carac(&Wisdom) / 10
+            }
+            PerResistance(_) => std::cmp::min(50, res),
+            _ => res,
+        }
+    }
+
+    pub fn eval(&self, value: &RawCaracsValue) -> f64 {
+        match value {
+            RawCaracsValue::Carac(carac) => self.get_carac(carac) as f64,
+            RawCaracsValue::Resiliance => self.resiliance(),
+        }
+    }
+
+    pub fn mean_per_resistance(&self) -> f64 {
+        let kinds = [
+            CaracKind::PerResistance(Element::Air),
+            CaracKind::PerResistance(Element::Earth),
+            CaracKind::PerResistance(Element::Fire),
+            CaracKind::PerResistance(Element::Water),
+            CaracKind::PerResistance(Element::Neutral),
+        ];
+
+        kinds
+            .iter()
+            .map(|kind| self.get_carac(kind) as f64)
+            .sum::<f64>()
+            / kinds.len() as f64
+    }
+
+    pub fn resiliance(&self) -> f64 {
+        let vitality = self.get_carac(&CaracKind::Vitality) as f64;
+        let mean_res = self.mean_per_resistance();
+        vitality / (1. - mean_res)
+    }
+}
+
+//  ____                      _
+// / ___|  ___  __ _ _ __ ___| |__
+// \___ \ / _ \/ _` | '__/ __| '_ \
+//  ___) |  __/ (_| | | | (__| | | |
+// |____/ \___|\__,_|_|  \___|_| |_|
+//
+
+impl Blackbox for Character<'_> {
+    fn eval(&self) -> f64 {
+        let carac_targets = {
+            use CaracKind::*;
+            use RawCaracsValue::*;
+
+            [
+                (Carac(&AP), 10),
+                (Carac(&MP), 6),
+                (Carac(&Range), 0),
+                (Carac(&APResistance), 40),
+                (Carac(&MPResistance), 40),
+                (Carac(&Stats(Element::Water)), 600),
+                (Resiliance, 4000),
+            ]
+        };
+
+        let target = |target: f64, width: f64, x: f64| -> f64 {
+            1. / (1. + (-width * (x - target)).exp())
+        };
+
+        let caracs = self.get_caracs();
+        carac_targets
+            .iter()
+            .map(|(target_type, target_val)| {
+                let val = caracs.eval(target_type);
+                let width = match target_type {
+                    RawCaracsValue::Resiliance => 150.,
+                    RawCaracsValue::Carac(kind) => {
+                        100. / kind.smithmage_weight()
+                    }
+                };
+                target(*target_val as f64, width, val)
+            })
+            .product()
     }
 }

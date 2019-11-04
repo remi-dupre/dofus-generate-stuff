@@ -11,7 +11,7 @@ use crate::dofapi::effect::Element;
 //  \____\__,_|_|  \__,_|\___||_| \__, | .__/ \___|
 //                                |___/|_|
 
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum CaracKind {
     AP,
     APReduction,
@@ -52,6 +52,65 @@ pub enum CaracKind {
     TrapPower,
     Vitality,
     Wisdom,
+}
+
+impl CaracKind {
+    pub fn smithmage_weight(&self) -> f64 {
+        use CaracKind::*;
+        match self {
+            Vitality => 1. / 5.,
+            Stats(_) => 1.,
+            Initiative => 1. / 10.,
+            Wisdom => 3.,
+            Prospecting => 3.,
+            Power => 2.,
+            Resistance(_) => 2.,
+            PerResistance(_) => 6.,
+            PushbackResistance | CriticalResistance => 2.,
+            APResistance | APReduction | MPReduction | MPResistance => 7.,
+            Pods => 2.5 / 10.,
+            Lock | Dodge => 4.,
+            RawDamage => 20.,
+            Damage(_) | CriticalDamage | PushbackDamage | TrapDamage => 5.,
+            PerMeleeDamage | PerMeleeResistance | PerRangedDamage
+            | PerRangedResistance | PerWeaponDamage | PerSpellDamage => 15.,
+            TrapPower => 2.,
+            Heals | Critical | ReflectDamage => 10.,
+            Summons => 30.,
+            Range => 50.,
+            MP => 90.,
+            AP => 100.,
+            _ => 0.,
+        }
+    }
+}
+
+impl fmt::Display for CaracKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CaracKind::Damage(element) => {
+                format!("{:?} damage", element).fmt(f)
+            }
+            CaracKind::PerResistance(element) => {
+                format!("% {:?} resistance", element).fmt(f)
+            }
+            CaracKind::Resistance(element) => {
+                format!("{:?} resistance", element).fmt(f)
+            }
+            CaracKind::Special(s) => s.fmt(f),
+            CaracKind::Stats(element) => (match element {
+                Element::Air => "Agility",
+                Element::Earth => "Force",
+                Element::Fire => "Intelligence",
+                Element::Water => "Chance",
+                Element::Neutral => {
+                    panic!("Invalid `Neutral` element for stats")
+                }
+            })
+            .fmt(f),
+            _ => format!("{:?}", self).fmt(f),
+        }
+    }
 }
 
 //  ____                      _       _ _
