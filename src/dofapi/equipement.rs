@@ -47,6 +47,9 @@ pub struct Equipement {
     pub url:         String,
     pub description: String,
 
+    #[serde(default, deserialize_with = "deserialize_set_id")]
+    pub set_id: Option<u64>,
+
     #[serde(default, deserialize_with = "deserialize_statistics")]
     pub statistics: HashMap<CaracKind, RangeInclusive<i16>>,
 }
@@ -117,5 +120,29 @@ impl<'de> de::Visitor<'de> for StatisticsVisitor {
         }
 
         Ok(ret)
+    }
+}
+
+fn deserialize_set_id<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(SetIdVisitor)
+}
+
+struct SetIdVisitor;
+
+impl<'de> de::Visitor<'de> for SetIdVisitor {
+    type Value = Option<u64>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("An integer, 0 for no set")
+    }
+
+    fn visit_u64<E>(self, val: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(if val == 0 { None } else { Some(val) })
     }
 }

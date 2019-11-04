@@ -107,6 +107,7 @@ fn main() -> io::Result<()> {
             for stat in stats {
                 println!(" {:35} {:>10}", stat, caracs.get_carac(stat));
             }
+            println!("conflicts: {}", character.count_item_conflicts());
         }
     }
 

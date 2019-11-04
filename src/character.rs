@@ -97,6 +97,30 @@ impl<'i> Character<'i> {
 
         RawCaracs(ret)
     }
+
+    pub fn count_item_conflicts(&self) -> u8 {
+        let mut conflicts = 0;
+
+        // Read first item
+        for (i, item1) in self.item_slots.iter().enumerate() {
+            if let Some(item1) = item1.item {
+                // Read second item
+                for item2 in &self.item_slots[i + 1..self.item_slots.len()] {
+                    if let Some(item2) = item2.item {
+                        if item1._id == item2._id
+                            && (item1.set_id.is_some()
+                                || item1.item_type == ItemType::Trophy
+                                || item1.item_type == ItemType::Dofus)
+                        {
+                            conflicts += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        conflicts
+    }
 }
 
 //  _____                    _  _____
@@ -183,7 +207,7 @@ impl RawCaracs<'_> {
     pub fn resiliance(&self) -> f64 {
         let vitality = self.get_carac(&CaracKind::Vitality) as f64;
         let mean_res = self.mean_per_resistance();
-        vitality / (1. - mean_res)
+        vitality / (1. - mean_res / 100.)
     }
 }
 
@@ -206,17 +230,17 @@ impl Blackbox for Character<'_> {
                 (Carac(&Range), 0),
                 (Carac(&APResistance), 40),
                 (Carac(&MPResistance), 40),
-                (Carac(&Stats(Element::Water)), 600),
-                (Resiliance, 4000),
+                (Carac(&Stats(Element::Water)), 900),
+                (Resiliance, 3000),
             ]
         };
 
         let target = |target: f64, width: f64, x: f64| -> f64 {
-            1. / (1. + (-width * (x - target)).exp())
+            1. / (1. + (-(x - target) / width).exp())
         };
 
         let caracs = self.get_caracs();
-        carac_targets
+        let targets_weight: f64 = carac_targets
             .iter()
             .map(|(target_type, target_val)| {
                 let val = caracs.eval(target_type);
@@ -228,6 +252,11 @@ impl Blackbox for Character<'_> {
                 };
                 target(*target_val as f64, width, val)
             })
-            .product()
+            .product();
+
+        let count_item_conflicts = self.count_item_conflicts();
+        let conflicts_weight = 0.5f64.powi(count_item_conflicts.into());
+
+        targets_weight * conflicts_weight
     }
 }
