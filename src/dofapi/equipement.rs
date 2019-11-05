@@ -5,6 +5,7 @@ use std::ops::RangeInclusive;
 use serde::{de, Deserialize, Deserializer};
 
 use crate::dofapi::carac::CaracKind;
+use crate::dofapi::condition::Condition;
 
 //  _____            _                                 _
 // | ____|__ _ _   _(_)_ __   ___ _ __ ___   ___ _ __ | |_
@@ -52,6 +53,9 @@ pub struct Equipement {
 
     #[serde(default, deserialize_with = "deserialize_statistics")]
     pub statistics: HashMap<CaracKind, RangeInclusive<i16>>,
+
+    #[serde(default)]
+    pub conditions: Condition,
 }
 
 //  ____                      _       _ _

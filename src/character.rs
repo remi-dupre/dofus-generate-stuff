@@ -264,7 +264,6 @@ impl<'i> Character<'i> {
     /// # Examples
     ///
     /// ```
-    /// assert!(false);
     /// use crate::dofapi::carac::CaracKind::*;
     /// use crate::dofapi::effect::Element::*;
     ///
@@ -510,7 +509,7 @@ impl Blackbox for Character<'_> {
         };
 
         let target = |target: f64, width: f64, x: f64| -> f64 {
-            1. / (1. + (-(x - target) / width).exp())
+            1. / (1. + (-(x + width - target) / width).exp())
         };
 
         let caracs = self.get_caracs();

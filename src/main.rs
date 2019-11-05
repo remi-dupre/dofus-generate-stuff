@@ -2,8 +2,11 @@ pub mod character;
 pub mod dofapi;
 pub mod rls;
 
+#[macro_use]
+extern crate lazy_static;
 extern crate rand;
 extern crate rayon;
+extern crate regex;
 extern crate serde_json;
 
 use rand::prelude::*;
@@ -11,6 +14,7 @@ use rayon::prelude::*;
 
 use crate::character::Character;
 use crate::dofapi::carac::CaracKind;
+use crate::dofapi::condition::Condition;
 use crate::dofapi::effect::Element;
 use crate::dofapi::equipement::{Equipement, ItemType};
 use crate::rls::Blackbox;
@@ -28,6 +32,30 @@ fn main() -> io::Result<()> {
     let equipements: Vec<Equipement> = equipements
         .into_iter()
         .filter(|item| item.level >= 150 || item.item_type == ItemType::Dofus)
+        .map(|mut item| {
+            // Fix trophy conditions, it seems to be overall a good fix except
+            // for a few exceptions, e.g.:
+            //  - Major Barbarian
+            //  - Major Transporter
+            //  - Cantile's Boots
+            if item.item_type == ItemType::Trophy {
+                let smithmage_value: f64 = item
+                    .statistics
+                    .iter()
+                    .map(|(kind, value)| {
+                        kind.smithmage_weight() * *value.start() as f64
+                    })
+                    .sum();
+
+                if smithmage_value >= 100. {
+                    item.conditions = Condition::And(Box::new(vec![
+                        Condition::RestrictSetBonuses,
+                    ]));
+                }
+            }
+
+            item
+        })
         .collect();
 
     // --- Index per slot
@@ -98,6 +126,7 @@ fn main() -> io::Result<()> {
                 )
             },
         )
+        .inspect(|c| println!("-> {}", c.eval()))
         .max_by(|c1, c2| c1.eval().partial_cmp(&c2.eval()).unwrap());
 
     // ---
@@ -139,8 +168,7 @@ fn main() -> io::Result<()> {
             for stat in stats {
                 println!(" {:35} {:>10}", stat, caracs.get_carac(stat));
             }
-            println!("stats: {:?}", character.base_stats);
-            println!("free points: {}", character.unspent);
+            println!("\nstats: {:?}", character.base_stats);
         }
     }
 
