@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 use crate::dofapi::carac::CaracKind;
 use crate::dofapi::effect::Element;
@@ -35,10 +36,24 @@ impl<'a, 'i> ItemSlot<'a, 'i> {
     }
 }
 
+//   ____ _                          _
+//  / ___| |__   __ _ _ __ __ _  ___| |_ ___ _ __
+// | |   | '_ \ / _` | '__/ _` |/ __| __/ _ \ '__|
+// | |___| | | | (_| | | | (_| | (__| ||  __/ |
+//  \____|_| |_|\__,_|_|  \__,_|\___|\__\___|_|
+//
+
+#[derive(Debug)]
+pub enum CharacterError<'c> {
+    NotEnoughPoints,
+    NotEnoughCaracs(&'c CaracKind),
+}
+
 #[derive(Clone, Debug)]
 pub struct Character<'i> {
     pub item_slots: Vec<ItemSlot<'static, 'i>>,
-    pub base_stats: HashMap<CaracKind, i16>,
+    pub base_stats: HashMap<&'i CaracKind, u16>,
+    pub unspent:    u16,
 }
 
 impl<'i> Character<'i> {
@@ -60,43 +75,279 @@ impl<'i> Character<'i> {
                 ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
                 ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
             ],
-            base_stats: vec![
-                (CaracKind::AP, 8),
-                (CaracKind::MP, 4),
-                (CaracKind::Range, 1),
-                (CaracKind::Stats(Element::Air), 100),
-                (CaracKind::Stats(Element::Earth), 100),
-                (CaracKind::Stats(Element::Fire), 100),
-                (CaracKind::Stats(Element::Water), 100),
-                (CaracKind::Wisdom, 100),
-                (CaracKind::Prospecting, 100),
-                (CaracKind::Pods, 1000),
-            ]
-            .into_iter()
-            .collect(),
+            base_stats: HashMap::new(),
+            unspent:    995,
         }
     }
 
     pub fn get_caracs(&self) -> RawCaracs {
-        let mut ret = HashMap::new();
-
-        self.item_slots
+        let items_vals = self
+            .item_slots
             .iter()
             .filter_map(|slot| {
                 slot.item.map(|item| {
                     item.statistics.iter().map(|(kind, bounds)| {
-                        (kind, std::cmp::max(bounds.start(), bounds.end()))
+                        (kind, *std::cmp::max(bounds.start(), bounds.end()))
                     })
                 })
             })
-            .flatten()
-            .chain(self.base_stats.iter())
-            .for_each(|(kind, &val)| {
-                ret.entry(kind).and_modify(|x| *x += val).or_insert(val);
-            });
+            .flatten();
+        let base_vals = self.base_stats.iter().map(|(&kind, val)| {
+            let val: i16 =
+                val.clone().try_into().expect("Base statistic overflow");
+            (kind, val)
+        });
 
+        let mut ret = HashMap::new();
+        for (kind, val) in base_vals.chain(items_vals) {
+            ret.entry(kind).and_modify(|x| *x += val).or_insert(val);
+        }
         RawCaracs(ret)
     }
+
+    //  ____                    ____
+    // | __ )  __ _ ___  ___   / ___|__ _ _ __ __ _  ___ ___
+    // |  _ \ / _` / __|/ _ \ | |   / _` | '__/ _` |/ __/ __|
+    // | |_) | (_| \__ \  __/ | |__| (_| | | | (_| | (__\__ \
+    // |____/ \__,_|___/\___|  \____\__,_|_|  \__,_|\___|___/
+    //
+
+    /// Compute the number of points to spend to reach a value for an initially
+    /// zero characteristic.
+    ///
+    /// `val` must be positive.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::dofapi::carac::CaracKind::*;
+    /// use crate::dofapi::effect::Element::*;
+    ///
+    /// assert_eq!(Character::carac_cost_from_zero(&Wisdom, 100), 300);
+    /// assert_eq!(Character::carac_cost_from_zero(&Stats(Air), 100), 100);
+    /// assert_eq!(Character::carac_cost_from_zero(&Stats(Air), 150), 200);
+    /// ```
+    pub fn carac_cost_from_zero(kind: &CaracKind, val: u16) -> u16 {
+        match kind {
+            CaracKind::Vitality => val,
+            CaracKind::Wisdom => 3 * val,
+            CaracKind::Stats(_) => {
+                // cost(q * 100 + r)
+                //   = 100 * (1 + 2 + ... + q) + r * (q + 1)
+                //   = 100 * (q * (q + 1) / 2) + r * (q + 1)
+                let q = val / 100;
+                let r = val % 100;
+                (q + 1) * (50 * q + r)
+            }
+            other => {
+                panic!(format!("Impossible to spend points for `{:?}`", other))
+            }
+        }
+    }
+
+    /// Compute the number of points to spend to increase a characteristic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::dofapi::carac::CaracKind::*;
+    /// use crate::dofapi::effect::Element::*;
+    ///
+    /// let mut character = Character::new();
+    /// assert_eq!(character.carac_spend_cost(&Stats(Air), 100), 100);
+    /// assert_eq!(character.carac_spend_cost(&Stats(Air), 150), 200);
+    ///
+    /// character.carac_spend(&Stats(Air), 200).unwrap();
+    /// assert_eq!(character.carac_spend_cost(&Stats(Air), 50), 100);
+    /// assert_eq!(character.carac_spend_cost(&Stats(Air), 150), 400);
+    /// ```
+    pub fn carac_spend_cost(&self, kind: &CaracKind, amount: u16) -> u16 {
+        let current = *self.base_stats.get(kind).unwrap_or(&0);
+        Self::carac_cost_from_zero(kind, current + amount)
+            - Self::carac_cost_from_zero(kind, current)
+    }
+
+    /// Compute the number of points recovered by decreasing a characteristic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::dofapi::carac::CaracKind::*;
+    /// use crate::dofapi::effect::Element::*;
+    ///
+    /// let mut character = Character::new();
+    /// character.carac_spend(&Stats(Air), 200).unwrap();
+    ///
+    /// assert_eq!(character.carac_unspend_recover(&Stats(Air), 100), Ok(200))
+    /// assert_eq!(character.carac_unspend_recover(&Stats(Air), 200), Ok(300))
+    /// assert!(character.carac_unspend_recover(&Stats(Air), 201).is_err())
+    /// ```
+    pub fn carac_unspend_recover(
+        &self,
+        kind: &'i CaracKind,
+        amount: u16,
+    ) -> Result<u16, CharacterError<'i>> {
+        let current = *self.base_stats.get(kind).unwrap_or(&0);
+
+        if current < amount {
+            Err(CharacterError::NotEnoughCaracs(kind))
+        } else {
+            Ok(Self::carac_cost_from_zero(kind, current)
+                - Self::carac_cost_from_zero(kind, current - amount))
+        }
+    }
+
+    /// Try to spend points to increase characteristic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::dofapi::carac::CaracKind::*;
+    /// use crate::dofapi::effect::Element::*;
+    ///
+    /// let mut character = Character::new();
+    ///
+    /// assert!(character.carac_spend(Stats(Air), 100).is_ok());
+    /// assert!(character.carac_spend(Stats(Air), 400).is_err());
+    /// ```
+    pub fn carac_spend(
+        &mut self,
+        kind: &'i CaracKind,
+        amount: u16,
+    ) -> Result<(), CharacterError> {
+        let cost = self.carac_spend_cost(kind, amount);
+
+        if cost > self.unspent {
+            Err(CharacterError::NotEnoughPoints)
+        } else {
+            self.unspent -= cost;
+            self.base_stats
+                .entry(kind)
+                .and_modify(|x| *x += amount)
+                .or_insert(amount);
+            Ok(())
+        }
+    }
+
+    /// Try to recover points by decreasing a characteristic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::dofapi::carac::CaracKind::*;
+    /// use crate::dofapi::effect::Element::*;
+    ///
+    /// let mut character = Character::new();
+    /// character.carac_spend(&Stats(Air), 200).unwrap();
+    ///
+    /// assert_eq!(character.carac_unspend(Stats(Air), 100), Ok(100));
+    /// assert_eq!(character.carac_unspend(Stats(Air), 99), Ok(100));
+    /// assert!(character.carac_unspend(Stats(Air), 201).is_err());
+    /// ```
+    pub fn carac_unspend(
+        &mut self,
+        kind: &'i CaracKind,
+        amount: u16,
+    ) -> Result<(), CharacterError> {
+        let recovered = self.carac_unspend_recover(kind, amount)?;
+        self.unspent += recovered;
+        self.base_stats.get_mut(kind).map(|x| *x -= amount);
+        Ok(())
+    }
+
+    /// Try to spend points to increase a characteristic, if there is not
+    /// enough unspent points, try to seek points from another characteristic.
+    ///
+    /// Returns Character::NotEnoughCaracs(seek_from) if it is not possible to
+    /// find enough points to increase properly this stat.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// assert!(false);
+    /// use crate::dofapi::carac::CaracKind::*;
+    /// use crate::dofapi::effect::Element::*;
+    ///
+    /// let mut character = Character::new();
+    ///
+    /// // Seek from unspent points
+    /// assert!(
+    ///     character
+    ///         .carac_spend_or_seek(&Stats(Air), 200, &Wisdom)
+    ///         .is_ok()
+    /// );
+    /// assert!(
+    ///     character
+    ///         .carac_spend_or_seek(&Vitality, 795, &Wisdom)
+    ///         .is_ok()
+    /// );
+    ///
+    /// // Seek from another carac
+    /// assert!(
+    ///     character
+    ///         .carac_spend_or_seek(&Vitality, 200, &Stats(Air))
+    ///         .is_ok()
+    /// );
+    /// assert!(
+    ///     character
+    ///         .carac_spend_or_seek(&Vitality, 1, &Stats(Air))
+    ///         .is_err()
+    /// );
+    /// ```
+    pub fn carac_spend_or_seek(
+        &mut self,
+        kind: &'i CaracKind,
+        amount: u16,
+        seek_from: &'i CaracKind,
+    ) -> Result<(), CharacterError> {
+        let cost = self.carac_spend_cost(kind, amount);
+
+        // If there is not enough unspent points, seek `cost - self.unspent`
+        // points by decreasing another carac.
+        if self.unspent < cost {
+            let required = cost - self.unspent;
+            let current = *self.base_stats.get(seek_from).unwrap_or(&0);
+
+            // If seek_from can't free enough points, abort computation.
+            if self.carac_unspend_recover(seek_from, current).unwrap()
+                < required
+            {
+                return Err(CharacterError::NotEnoughCaracs(seek_from));
+            }
+
+            let decrease = {
+                let mut min = 1;
+                let mut max = current + 1;
+
+                while min + 1 < max {
+                    let mid = (min + max - 1) / 2;
+
+                    if self.carac_unspend_recover(seek_from, mid).unwrap()
+                        < required
+                    {
+                        min = mid + 1;
+                    } else {
+                        max = mid + 1;
+                    }
+                }
+
+                debug_assert_eq!(min + 1, max);
+                min
+            };
+
+            self.carac_unspend(seek_from, decrease).unwrap();
+        }
+
+        self.carac_spend(kind, amount).unwrap();
+        Ok(())
+    }
+
+    // __     __    _ _     _ _ _
+    // \ \   / /_ _| (_) __| (_) |_ _   _
+    //  \ \ / / _` | | |/ _` | | __| | | |
+    //   \ V / (_| | | | (_| | | |_| |_| |
+    //    \_/ \__,_|_|_|\__,_|_|\__|\__, |
+    //                              |___/
 
     pub fn count_item_conflicts(&self) -> u8 {
         let mut conflicts = 0;
@@ -132,6 +383,7 @@ impl<'i> Character<'i> {
 
 pub enum RawCaracsValue<'c> {
     Carac(&'c CaracKind),
+    PowStats(Element),
     Resiliance,
 }
 
@@ -151,6 +403,20 @@ impl RawCaracs<'_> {
         }
     }
 
+    pub fn get_base_carac(&self, kind: &CaracKind) -> i16 {
+        match kind {
+            CaracKind::Vitality => 1050 + 100,
+            CaracKind::AP => 7 + 1,
+            CaracKind::MP => 3 + 1,
+            CaracKind::Range => 1,
+            CaracKind::Stats(_) => 100,
+            CaracKind::Wisdom => 100,
+            CaracKind::Prospecting => 100,
+            CaracKind::Initiative => 1000,
+            _ => 0,
+        }
+    }
+
     fn get_raw_carac(&self, kind: &CaracKind) -> i16 {
         *self.as_map().get(kind).unwrap_or(&0)
     }
@@ -159,7 +425,7 @@ impl RawCaracs<'_> {
         use CaracKind::*;
         use Element::*;
 
-        let res = self.get_raw_carac(kind);
+        let res = self.get_raw_carac(kind) + self.get_base_carac(kind);
         match kind {
             AP => std::cmp::min(res, 12),
             MP => std::cmp::min(res, 6),
@@ -184,6 +450,15 @@ impl RawCaracs<'_> {
     pub fn eval(&self, value: &RawCaracsValue) -> f64 {
         match value {
             RawCaracsValue::Carac(carac) => self.get_carac(carac) as f64,
+            RawCaracsValue::PowStats(element) => match element {
+                Element::Neutral => {
+                    self.eval(&RawCaracsValue::PowStats(Element::Earth))
+                }
+                _ => {
+                    self.get_carac(&CaracKind::Stats(*element)) as f64
+                        + self.get_carac(&CaracKind::Power) as f64
+                }
+            },
             RawCaracsValue::Resiliance => self.resiliance(),
         }
     }
@@ -227,11 +502,10 @@ impl Blackbox for Character<'_> {
             [
                 (Carac(&AP), 10),
                 (Carac(&MP), 6),
-                (Carac(&Range), 0),
                 (Carac(&APResistance), 40),
                 (Carac(&MPResistance), 40),
-                (Carac(&Stats(Element::Water)), 900),
-                (Resiliance, 3000),
+                (PowStats(Element::Air), 900),
+                (Resiliance, 6000),
             ]
         };
 
@@ -246,6 +520,7 @@ impl Blackbox for Character<'_> {
                 let val = caracs.eval(target_type);
                 let width = match target_type {
                     RawCaracsValue::Resiliance => 150.,
+                    RawCaracsValue::PowStats(_) => 100.,
                     RawCaracsValue::Carac(kind) => {
                         100. / kind.smithmage_weight()
                     }
@@ -255,7 +530,7 @@ impl Blackbox for Character<'_> {
             .product();
 
         let count_item_conflicts = self.count_item_conflicts();
-        let conflicts_weight = 0.5f64.powi(count_item_conflicts.into());
+        let conflicts_weight = 0.8f64.powi(count_item_conflicts.into());
 
         targets_weight * conflicts_weight
     }

@@ -45,8 +45,16 @@ fn main() -> io::Result<()> {
 
     // ---
     eprintln!("-- Build random stuffs...");
+    let assignable_caracs = [
+        CaracKind::Vitality,
+        CaracKind::Wisdom,
+        CaracKind::Stats(Element::Air),
+        CaracKind::Stats(Element::Earth),
+        CaracKind::Stats(Element::Fire),
+        CaracKind::Stats(Element::Water),
+    ];
 
-    let best = (0..16)
+    let best = (0..8)
         .into_par_iter()
         .map_init(
             || rand::thread_rng(),
@@ -55,13 +63,37 @@ fn main() -> io::Result<()> {
                     Character::new(),
                     1_000_000,
                     &mut rng,
-                    |mut new, rng| -> Character {
-                        let slot_i = rng.gen_range(0, slot_pool.len());
-                        let item = slot_pool[slot_i]
-                            .choose(rng)
-                            .expect("No available item for slot");
-                        new.item_slots[slot_i].equip(item);
-                        new
+                    |mut new, mut rng| -> Character {
+                        if rng.gen_bool(0.5) {
+                            let slot_i = rng.gen_range(0, slot_pool.len());
+                            let item = slot_pool[slot_i]
+                                .choose(rng)
+                                .expect("No available item for slot");
+                            new.item_slots[slot_i].equip(item);
+                            new
+                        } else {
+                            let kind = assignable_caracs
+                                .iter()
+                                .choose(&mut rng)
+                                .unwrap();
+                            let from = assignable_caracs
+                                .iter()
+                                .choose(&mut rng)
+                                .unwrap();
+
+                            if new
+                                .carac_spend_or_seek(
+                                    kind,
+                                    *[1, 5, 10].choose(&mut rng).unwrap(),
+                                    from,
+                                )
+                                .is_err()
+                            {
+                                let _ = new.carac_spend_or_seek(kind, 1, from);
+                            }
+
+                            new
+                        }
                     },
                 )
             },
@@ -107,7 +139,8 @@ fn main() -> io::Result<()> {
             for stat in stats {
                 println!(" {:35} {:>10}", stat, caracs.get_carac(stat));
             }
-            println!("conflicts: {}", character.count_item_conflicts());
+            println!("stats: {:?}", character.base_stats);
+            println!("free points: {}", character.unspent);
         }
     }
 
