@@ -429,8 +429,11 @@ impl<'i> Character<'i> {
                 }
             }
             ConditionAtom::RestrictSetBonuses => {
-                let count_synergies: u8 =
-                    self.iter_set_synergies().map(|(_, count)| count).sum();
+                let count_synergies: u8 = self
+                    .iter_set_synergies()
+                    .map(|(_, count)| count)
+                    .filter(|&count| count > 1)
+                    .sum();
 
                 if count_synergies > 2 {
                     CaracKind::AP.smithmage_weight()

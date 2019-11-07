@@ -5,7 +5,7 @@ use crate::character::{Character, RawCaracsValue};
 use crate::dofapi::{CaracKind, Element, Equipement};
 use crate::rls::rls;
 
-const STEPS: u64 = 1_000_000;
+const STEPS: u32 = 100_000;
 const ASSIGNABLE_CARACS: &[CaracKind] = &[
     CaracKind::Vitality,
     CaracKind::Wisdom,
@@ -23,7 +23,7 @@ fn walk_character<'i>(
     let mut new = init.clone();
 
     if rng.gen_bool(0.5) {
-        // Swap some statistics
+        // Swap some items
         let slot_i = rng.gen_range(0, db_slot_pool.len());
         let item = db_slot_pool[slot_i]
             .choose(rng)
@@ -31,7 +31,7 @@ fn walk_character<'i>(
         new.item_slots[slot_i].equip(item);
         new
     } else {
-        // Swap some items
+        // Swap some statistics
         let kind = ASSIGNABLE_CARACS.iter().choose(rng).unwrap();
         let from = ASSIGNABLE_CARACS.iter().choose(rng).unwrap();
 
