@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use std::fmt;
-use std::ops::RangeInclusive;
 
 use serde::{de, Deserialize, Deserializer};
 
-use crate::dofapi::carac::CaracKind;
+use crate::dofapi::carac::CaracLines;
 use crate::dofapi::condition::Condition;
 
 //  _____            _                                 _
@@ -48,11 +46,11 @@ pub struct Equipement {
     pub url:         String,
     pub description: String,
 
-    #[serde(default, deserialize_with = "deserialize_set_id")]
+    #[serde(rename = "setId", deserialize_with = "deserialize_set_id")]
     pub set_id: Option<u64>,
 
-    #[serde(default, deserialize_with = "deserialize_statistics")]
-    pub statistics: HashMap<CaracKind, RangeInclusive<i16>>,
+    #[serde(default)]
+    pub statistics: CaracLines,
 
     #[serde(default)]
     pub conditions: Condition,
@@ -64,68 +62,6 @@ pub struct Equipement {
 // | |_| |  __/\__ \  __/ |  | | (_| | | |/ /  __/ |
 // |____/ \___||___/\___|_|  |_|\__,_|_|_/___\___|_|
 //
-
-fn deserialize_statistics<'de, D>(
-    deserializer: D,
-) -> Result<HashMap<CaracKind, RangeInclusive<i16>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    deserializer.deserialize_any(StatisticsVisitor)
-}
-
-struct StatisticsVisitor;
-
-impl<'de> de::Visitor<'de> for StatisticsVisitor {
-    type Value = HashMap<CaracKind, RangeInclusive<i16>>;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("A sequence of item characteristics")
-    }
-
-    fn visit_seq<D>(self, mut access: D) -> Result<Self::Value, D::Error>
-    where
-        D: de::SeqAccess<'de>,
-    {
-        let mut ret = HashMap::new();
-
-        #[derive(Deserialize)]
-        struct Bounds {
-            min: Option<i16>,
-            max: Option<i16>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum ItemLine {
-            Carac(HashMap<CaracKind, Bounds>),
-            Emote { emote: String },
-            Title { title: String },
-        }
-
-        while let Some(line) = access.next_element()? {
-            let line: ItemLine = line;
-
-            match line {
-                ItemLine::Carac(carac) => {
-                    let (carac_kind, bounds) = carac
-                        .into_iter()
-                        .next()
-                        .expect("Invalid empty item line");
-
-                    let min = bounds.min.unwrap_or(0);
-                    let max = bounds.max.unwrap_or(min);
-
-                    ret.insert(carac_kind, min..=max);
-                }
-                ItemLine::Emote { emote: _s } => (),
-                ItemLine::Title { title: _s } => (),
-            }
-        }
-
-        Ok(ret)
-    }
-}
 
 fn deserialize_set_id<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
 where

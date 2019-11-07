@@ -5,6 +5,7 @@ use crate::dofapi::carac::CaracKind;
 use crate::dofapi::condition::{Condition, ConditionAtom};
 use crate::dofapi::effect::Element;
 use crate::dofapi::equipement::{Equipement, ItemType};
+use crate::dofapi::set::Set;
 use crate::rls::Blackbox;
 
 #[derive(Clone, Debug)]
@@ -50,15 +51,17 @@ pub enum CharacterError<'c> {
     NotEnoughCaracs(&'c CaracKind),
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Character<'i> {
     pub item_slots: Vec<ItemSlot<'static, 'i>>,
     pub base_stats: HashMap<&'i CaracKind, u16>,
     pub unspent:    u16,
+    // Contextual attributes
+    sets: &'i HashMap<u64, Set>,
 }
 
 impl<'i> Character<'i> {
-    pub fn new() -> Self {
+    pub fn new(sets: &'i HashMap<u64, Set>) -> Self {
         Character {
             item_slots: vec![
                 ItemSlot::new(&[ItemType::Hat]),
@@ -77,7 +80,8 @@ impl<'i> Character<'i> {
                 ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
             ],
             base_stats: HashMap::new(),
-            unspent:    995,
+            unspent: 995,
+            sets,
         }
     }
 
@@ -90,11 +94,24 @@ impl<'i> Character<'i> {
         let items_vals = self
             .iter_items()
             .map(|item| {
-                item.statistics.iter().map(|(kind, bounds)| {
+                item.statistics.as_map().iter().map(|(kind, bounds)| {
                     (kind, *std::cmp::max(bounds.start(), bounds.end()))
                 })
             })
             .flatten();
+
+        let sets_vals = self
+            .iter_set_synergies()
+            .filter_map(|(set_id, count)| {
+                Some(
+                    self.sets.get(&set_id)?.bonus.get(&count)?.as_map().iter(),
+                )
+            })
+            .flatten()
+            .map(|(kind, bounds)| {
+                (kind, *std::cmp::max(bounds.start(), bounds.end()))
+            });
+
         let base_vals = self.base_stats.iter().map(|(&kind, val)| {
             let val: i16 =
                 val.clone().try_into().expect("Base statistic overflow");
@@ -102,7 +119,7 @@ impl<'i> Character<'i> {
         });
 
         let mut ret = HashMap::new();
-        for (kind, val) in base_vals.chain(items_vals) {
+        for (kind, val) in base_vals.chain(items_vals).chain(sets_vals) {
             ret.entry(kind).and_modify(|x| *x += val).or_insert(val);
         }
         RawCaracs(ret)
@@ -377,9 +394,11 @@ impl<'i> Character<'i> {
         })
     }
 
-    /// Compute an approximate smithmage weight value required to complie to a condition.
+    /// Compute an approximate smithmage weight value required to complie to a
+    /// condition.
     pub fn condition_overflow(&self, cond: &Condition) -> f64 {
-        // NOTE: this is costly and there may be a way to implement cleaningly a cache mechanic.
+        // NOTE: this is costly and there may be a way to implement cleaningly
+        // a cache mechanic.
         let caracs = self.get_caracs();
 
         let atom_overflow = |atom: &ConditionAtom| match atom {
@@ -581,31 +600,31 @@ impl Blackbox for Character<'_> {
             use CaracKind::*;
             use RawCaracsValue::*;
 
-            [
-                (Carac(&AP), 10),
-                (Carac(&MP), 5),
-                (Carac(&APResistance), 40),
-                (Carac(&MPResistance), 40),
-                (PowStats(Element::Air), 0),
-                (PowStats(Element::Earth), 0),
-                (PowStats(Element::Fire), 0),
-                (PowStats(Element::Water), 0),
-                (Carac(&Critical), 30),
-                (MeanExtraDamage(Element::Air), 200),
-                (MeanExtraDamage(Element::Earth), 200),
-                (MeanExtraDamage(Element::Fire), 200),
-                (MeanExtraDamage(Element::Water), 200),
-                (Resiliance, 4000),
-            ]
             // [
-            //     (Carac(&AP), 10),
-            //     (Carac(&MP), 6),
+            //     (Carac(&AP), 11),
+            //     (Carac(&MP), 5),
             //     (Carac(&APResistance), 40),
             //     (Carac(&MPResistance), 40),
-            //     (PowStats(Element::Air), 900),
-            //     (MeanExtraDamage(Element::Air), 150),
-            //     (Resiliance, 6000),
+            //     (PowStats(Element::Air), 0),
+            //     (PowStats(Element::Earth), 0),
+            //     (PowStats(Element::Fire), 0),
+            //     (PowStats(Element::Water), 0),
+            //     (Carac(&Critical), 30),
+            //     (MeanExtraDamage(Element::Air), 200),
+            //     (MeanExtraDamage(Element::Earth), 200),
+            //     (MeanExtraDamage(Element::Fire), 200),
+            //     (MeanExtraDamage(Element::Water), 200),
+            //     (Resiliance, 4000),
             // ]
+            [
+                (Carac(&AP), 10),
+                (Carac(&MP), 6),
+                (Carac(&APResistance), 40),
+                (Carac(&MPResistance), 40),
+                (PowStats(Element::Air), 900),
+                (MeanExtraDamage(Element::Air), 150),
+                (Resiliance, 6000),
+            ]
         };
 
         let target_min = |target: f64, width: f64, x: f64| -> f64 {
@@ -636,7 +655,7 @@ impl Blackbox for Character<'_> {
             .product();
 
         let count_item_conflicts = self.count_item_conflicts();
-        let conflicts_weight = 0.8f64.powi(count_item_conflicts.into());
+        let conflicts_weight = 0.1f64.powi(count_item_conflicts.into());
 
         let conditions_weight =
             target_zero(800., self.condition_overflow(&self.all_conditions()));

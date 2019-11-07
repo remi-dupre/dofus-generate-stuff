@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::convert::From;
 use std::fmt;
+use std::ops::RangeInclusive;
 
 use serde::{de, Deserialize, Deserializer};
 
@@ -206,5 +208,86 @@ impl<'de> de::Visitor<'de> for CaracKindVisitor {
         E: de::Error,
     {
         Ok(v.into())
+    }
+}
+
+// Deserializer for item line
+
+#[derive(Debug)]
+pub struct CaracLines(HashMap<CaracKind, RangeInclusive<i16>>);
+
+impl CaracLines {
+    pub fn as_map(&self) -> &HashMap<CaracKind, RangeInclusive<i16>> {
+        match self {
+            CaracLines(map) => map,
+        }
+    }
+}
+
+impl Default for CaracLines {
+    fn default() -> Self {
+        CaracLines(HashMap::new())
+    }
+}
+
+struct CaracLinesVisitor;
+
+impl<'de> Deserialize<'de> for CaracLines {
+    fn deserialize<D>(deserializer: D) -> Result<CaracLines, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(CaracLinesVisitor)
+    }
+}
+
+impl<'de> de::Visitor<'de> for CaracLinesVisitor {
+    type Value = CaracLines;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("A sequence of item characteristics")
+    }
+
+    fn visit_seq<D>(self, mut access: D) -> Result<Self::Value, D::Error>
+    where
+        D: de::SeqAccess<'de>,
+    {
+        let mut ret = HashMap::new();
+
+        #[derive(Deserialize)]
+        struct Bounds {
+            min: Option<i16>,
+            max: Option<i16>,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum ItemLine {
+            Carac(HashMap<CaracKind, Bounds>),
+            Emote { emote: String },
+            Title { title: String },
+        }
+
+        while let Some(line) = access.next_element()? {
+            let line: ItemLine = line;
+
+            match line {
+                ItemLine::Carac(carac) => {
+                    let (carac_kind, bounds) = carac
+                        .into_iter()
+                        .next()
+                        .expect("Invalid empty item line");
+
+                    let min = bounds.min.unwrap_or(0);
+                    let max = bounds.max.unwrap_or(min);
+
+                    ret.insert(carac_kind, min..=max);
+                }
+                ItemLine::Emote { emote: _s } => (),
+                ItemLine::Title { title: _s } => (),
+            }
+        }
+
+        Ok(CaracLines(ret))
     }
 }

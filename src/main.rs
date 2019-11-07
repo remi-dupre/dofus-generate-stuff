@@ -17,14 +17,24 @@ use crate::dofapi::carac::CaracKind;
 use crate::dofapi::condition::ConditionAtom;
 use crate::dofapi::effect::Element;
 use crate::dofapi::equipement::{Equipement, ItemType};
+use crate::dofapi::set::Set;
 use crate::rls::Blackbox;
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 
 fn main() -> io::Result<()> {
     // ---
     eprintln!("-- Loading data...");
+
+    let sets: Vec<Set> = {
+        let file = File::open("./data/sets.json")?;
+        serde_json::from_reader(io::BufReader::new(file))?
+    };
+    let sets: HashMap<u64, Set> =
+        sets.into_iter().map(|set| (set._id, set)).collect();
+
     let equipements: Vec<Equipement> = {
         let file = File::open("./data/allequipments.json")?;
         serde_json::from_reader(io::BufReader::new(file))?
@@ -42,6 +52,7 @@ fn main() -> io::Result<()> {
             if item.item_type == ItemType::Trophy {
                 let smithmage_value: f64 = item
                     .statistics
+                    .as_map()
                     .iter()
                     .map(|(kind, value)| {
                         kind.smithmage_weight() * f64::from(*value.start())
@@ -55,12 +66,11 @@ fn main() -> io::Result<()> {
 
             item
         })
-        .inspect(|e| println!("{}: {:?}", e.name, e.conditions))
         .collect();
 
     // --- Index per slot
     eprintln!("-- Build index of available items for each slot...");
-    let slot_pool: Vec<_> = Character::new()
+    let slot_pool: Vec<_> = Character::new(&sets)
         .item_slots
         .iter()
         .map(|slot| {
@@ -86,7 +96,7 @@ fn main() -> io::Result<()> {
         .into_par_iter()
         .map_init(rand::thread_rng, |mut rng, _| {
             Character::bb_find_max(
-                Character::new(),
+                Character::new(&sets),
                 1_000_000,
                 &mut rng,
                 |mut new, mut rng| -> Character {
@@ -166,6 +176,11 @@ fn main() -> io::Result<()> {
                 println!(" {:35} {:>10}", stat, caracs.get_carac(stat));
             }
             println!("\nstats: {:?}", character.base_stats);
+            println!(
+                "conditions ({}): {:?}",
+                character.condition_overflow(&character.all_conditions()),
+                character.all_conditions()
+            );
         }
     }
 
