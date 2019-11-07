@@ -14,7 +14,7 @@ use rayon::prelude::*;
 
 use crate::character::Character;
 use crate::dofapi::carac::CaracKind;
-use crate::dofapi::condition::Condition;
+use crate::dofapi::condition::ConditionAtom;
 use crate::dofapi::effect::Element;
 use crate::dofapi::equipement::{Equipement, ItemType};
 use crate::rls::Blackbox;
@@ -43,14 +43,13 @@ fn main() -> io::Result<()> {
                     .statistics
                     .iter()
                     .map(|(kind, value)| {
-                        kind.smithmage_weight() * *value.start() as f64
+                        kind.smithmage_weight() * f64::from(*value.start())
                     })
                     .sum();
 
                 if smithmage_value >= 100. {
-                    item.conditions = Condition::And(Box::new(vec![
-                        Condition::RestrictSetBonuses,
-                    ]));
+                    item.conditions =
+                        ConditionAtom::RestrictSetBonuses.into();
                 }
             }
 
@@ -84,48 +83,41 @@ fn main() -> io::Result<()> {
 
     let best = (0..8)
         .into_par_iter()
-        .map_init(
-            || rand::thread_rng(),
-            |mut rng, _| {
-                Character::bb_find_max(
-                    Character::new(),
-                    1_000_000,
-                    &mut rng,
-                    |mut new, mut rng| -> Character {
-                        if rng.gen_bool(0.5) {
-                            let slot_i = rng.gen_range(0, slot_pool.len());
-                            let item = slot_pool[slot_i]
-                                .choose(rng)
-                                .expect("No available item for slot");
-                            new.item_slots[slot_i].equip(item);
-                            new
-                        } else {
-                            let kind = assignable_caracs
-                                .iter()
-                                .choose(&mut rng)
-                                .unwrap();
-                            let from = assignable_caracs
-                                .iter()
-                                .choose(&mut rng)
-                                .unwrap();
+        .map_init(rand::thread_rng, |mut rng, _| {
+            Character::bb_find_max(
+                Character::new(),
+                1_000_000,
+                &mut rng,
+                |mut new, mut rng| -> Character {
+                    if rng.gen_bool(0.5) {
+                        let slot_i = rng.gen_range(0, slot_pool.len());
+                        let item = slot_pool[slot_i]
+                            .choose(rng)
+                            .expect("No available item for slot");
+                        new.item_slots[slot_i].equip(item);
+                        new
+                    } else {
+                        let kind =
+                            assignable_caracs.iter().choose(&mut rng).unwrap();
+                        let from =
+                            assignable_caracs.iter().choose(&mut rng).unwrap();
 
-                            if new
-                                .carac_spend_or_seek(
-                                    kind,
-                                    *[1, 5, 10].choose(&mut rng).unwrap(),
-                                    from,
-                                )
-                                .is_err()
-                            {
-                                let _ = new.carac_spend_or_seek(kind, 1, from);
-                            }
-
-                            new
+                        if new
+                            .carac_spend_or_seek(
+                                kind,
+                                *[1, 5, 10].choose(&mut rng).unwrap(),
+                                from,
+                            )
+                            .is_err()
+                        {
+                            let _ = new.carac_spend_or_seek(kind, 1, from);
                         }
-                    },
-                )
-            },
-        )
+
+                        new
+                    }
+                },
+            )
+        })
         .inspect(|c| println!("-> {}", c.eval()))
         .max_by(|c1, c2| c1.eval().partial_cmp(&c2.eval()).unwrap());
 

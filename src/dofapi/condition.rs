@@ -1,4 +1,3 @@
-use std::boxed::Box;
 use std::cmp::Ordering;
 use std::convert::From;
 use std::fmt;
@@ -8,20 +7,142 @@ use serde::{de, Deserialize, Deserializer};
 
 use crate::dofapi::carac::CaracKind;
 
-#[derive(Debug)]
-pub enum Condition {
-    And(Box<Vec<Condition>>),
-    Or(Box<Vec<Condition>>),
+#[derive(Clone, Debug)]
+pub enum ConditionAtom {
     Other(String),
     Stats(CaracKind, Ordering, i16),
     RestrictSetBonuses,
 }
 
-impl Default for Condition {
-    fn default() -> Self {
-        Condition::And(Box::new(Vec::new()))
+impl ConditionAtom {
+    pub fn is_stronger_than(&self, other: &ConditionAtom) -> bool {
+        use ConditionAtom::*;
+        match (self, other) {
+            (Stats(lkind, lord, lval), Stats(rkind, rord, rval))
+                if lkind == rkind
+                    && (lord == rord || *lord == Ordering::Equal) =>
+            {
+                lval == rval
+                    || lval.cmp(rval) == *lord
+                    || lval.cmp(rval) == *rord
+            }
+            (RestrictSetBonuses, RestrictSetBonuses) => true,
+            (Other(s1), Other(s2)) => s1 == s2,
+            _ => false,
+        }
     }
 }
+
+/// A clause of atoms, i.e. written in the form (atom1 or atom2 ...) and (atom_i or atom_j ...) ...
+#[derive(Clone, Debug, Default)]
+pub struct Condition(Vec<Vec<ConditionAtom>>);
+
+impl Condition {
+    pub fn new() -> Self {
+        Condition(vec![])
+    }
+
+    /// Get clauses (the list of disjunction of a big `and` operator).
+    pub fn clauses(&self) -> &Vec<Vec<ConditionAtom>> {
+        match self {
+            Condition(clauses) => clauses,
+        }
+    }
+
+    /// Move into clauses (the list of disjunction of a big `and` operator).
+    pub fn into_clauses(self) -> Vec<Vec<ConditionAtom>> {
+        match self {
+            Condition(clauses) => clauses,
+        }
+    }
+
+    /// Build a clause which is true if and only if both `cond1` and `cond2` are true.
+    pub fn and(cond1: Self, cond2: Self) -> Self {
+        // Function to check if a clause is stronger than another. Note that this is a partial
+        // order, two clauses may not be comparable.
+        let clause_stronger_than = |clause1: &Vec<ConditionAtom>,
+                                    clause2: &Vec<ConditionAtom>|
+         -> bool {
+            clause1.iter().all(|atom1| {
+                clause2.iter().any(|atom2| atom1.is_stronger_than(atom2))
+            })
+        };
+
+        let mut clauses = cond1.into_clauses();
+
+        for next_clause in cond2.into_clauses() {
+            let has_stronger_clause = clauses.iter().any(|prev_clause| {
+                clause_stronger_than(prev_clause, &next_clause)
+            });
+
+            if has_stronger_clause {
+                continue;
+            }
+
+            let weaker_clause = clauses.iter_mut().find(|prev_clause| {
+                clause_stronger_than(&next_clause, prev_clause)
+            });
+
+            if let Some(weaker_clause) = weaker_clause {
+                *weaker_clause = next_clause;
+            } else {
+                clauses.push(next_clause);
+            }
+        }
+
+        Condition(clauses)
+    }
+}
+
+impl From<ConditionAtom> for Condition {
+    fn from(atom: ConditionAtom) -> Self {
+        Condition(vec![vec![atom]])
+    }
+}
+
+// impl Condition {
+//     pub fn expand_and(&self) -> impl Iterator<Item = &Condition> {
+//         match self {
+//             Condition::And(terms) => terms
+//                 .iter()
+//                 .map(|term| term.expand_and())
+//                 .flatten()
+//                 .collect::<Vec<_>>()
+//                 .into_iter(),
+//             other => vec![other].into_iter(),
+//         }
+//     }
+//
+//     /// Check if this condition is stronger than another condition. In other terms if the other condition will always be true as long as this one is.
+//     pub fn stronger_than(&self, other: &Condition) -> bool {
+//         use Condition::*;
+//         match (self, other) {
+//             (And(terms), _) => {
+//                 terms.iter().any(|term| term.stronger_than(other))
+//             }
+//             (_, And(terms)) => {
+//                 terms.iter().all(|term| term.stronger_than(self))
+//             }
+//             (Or(terms), _) => {
+//                 terms.iter().all(|term| term.stronger_than(other))
+//             }
+//             (_, Or(terms)) => {
+//                 terms.iter().any(|term| term.stronger_than(other))
+//             }
+//             (Stats(lkind, lord, lval), Stats(rkind, rord, rval))
+//                 if lkind == rkind
+//                     && (lord == rord || *lord == Ordering::Equal) =>
+//             {
+//                 lval == rval
+//                     || lval.cmp(rval) == *lord
+//                     || lval.cmp(rval) == *rord
+//             }
+//             (RestrictSetBonuses, RestrictSetBonuses) => true,
+//             (Other(s1), Other(s2)) => s1 == s2,
+//             _ => false,
+//         }
+//     }
+// }
 
 //  ____                      _       _ _
 // |  _ \  ___  ___  ___ _ __(_) __ _| (_)_______ _ __
@@ -64,28 +185,36 @@ impl From<&str> for Condition {
                     .unwrap();
         }
 
-        if from.split(" or ").count() > 1 {
-            return Condition::Or(Box::new(
-                from.split(" or ").map(|term| term.into()).collect(),
-            ));
-        } else if from.split(" and").count() > 1 {
-            return Condition::And(Box::new(
-                from.split(" and ").map(|term| term.into()).collect(),
-            ));
-        } else if let Some(captures) = RE_CMP.captures(from) {
-            let kind = captures.name("carac").unwrap().as_str().into();
-            let ordering = match captures.name("sign").unwrap().as_str() {
-                "<" => Ordering::Less,
-                ">" => Ordering::Greater,
-                _ => unreachable!(),
-            };
-            let value = captures.name("value").unwrap().as_str().parse();
+        let try_into_eq = |from: &str| {
+            if let Some(captures) = RE_CMP.captures(from) {
+                let kind = captures.name("carac").unwrap().as_str().into();
+                let ordering = match captures.name("sign").unwrap().as_str() {
+                    "<" => Ordering::Less,
+                    ">" => Ordering::Greater,
+                    _ => unreachable!(),
+                };
+                let value = captures.name("value").unwrap().as_str().parse();
 
-            if let Ok(value) = value {
-                return Condition::Stats(kind, ordering, value);
+                if let Ok(value) = value {
+                    return Some(ConditionAtom::Stats(kind, ordering, value));
+                }
             }
-        }
+            None
+        };
 
-        Condition::Other(String::from(from))
+        Condition(
+            from.split(" and ")
+                .map(|clause| {
+                    clause
+                        .split(" or ")
+                        .map(|atom| {
+                            try_into_eq(atom).unwrap_or_else(|| {
+                                ConditionAtom::Other(String::from(atom))
+                            })
+                        })
+                        .collect()
+                })
+                .collect(),
+        )
     }
 }

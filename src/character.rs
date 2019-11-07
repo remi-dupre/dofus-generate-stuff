@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{Into, TryInto};
 
 use crate::dofapi::carac::CaracKind;
+use crate::dofapi::condition::{Condition, ConditionAtom};
 use crate::dofapi::effect::Element;
 use crate::dofapi::equipement::{Equipement, ItemType};
 use crate::rls::Blackbox;
@@ -49,7 +50,7 @@ pub enum CharacterError<'c> {
     NotEnoughCaracs(&'c CaracKind),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Character<'i> {
     pub item_slots: Vec<ItemSlot<'static, 'i>>,
     pub base_stats: HashMap<&'i CaracKind, u16>,
@@ -80,15 +81,17 @@ impl<'i> Character<'i> {
         }
     }
 
+    /// Iterator over items currently equiped.
+    pub fn iter_items(&self) -> impl Iterator<Item = &Equipement> {
+        self.item_slots.iter().filter_map(|slot| slot.item)
+    }
+
     pub fn get_caracs(&self) -> RawCaracs {
         let items_vals = self
-            .item_slots
-            .iter()
-            .filter_map(|slot| {
-                slot.item.map(|item| {
-                    item.statistics.iter().map(|(kind, bounds)| {
-                        (kind, *std::cmp::max(bounds.start(), bounds.end()))
-                    })
+            .iter_items()
+            .map(|item| {
+                item.statistics.iter().map(|(kind, bounds)| {
+                    (kind, *std::cmp::max(bounds.start(), bounds.end()))
                 })
             })
             .flatten();
@@ -103,6 +106,21 @@ impl<'i> Character<'i> {
             ret.entry(kind).and_modify(|x| *x += val).or_insert(val);
         }
         RawCaracs(ret)
+    }
+
+    pub fn iter_set_synergies(&self) -> impl Iterator<Item = (u64, u8)> {
+        let mut synergies = HashMap::new();
+
+        for item in self.iter_items() {
+            if let Some(set_id) = item.set_id {
+                synergies
+                    .entry(set_id)
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
+            }
+        }
+
+        synergies.into_iter()
     }
 
     //  ____                    ____
@@ -251,7 +269,11 @@ impl<'i> Character<'i> {
     ) -> Result<(), CharacterError> {
         let recovered = self.carac_unspend_recover(kind, amount)?;
         self.unspent += recovered;
-        self.base_stats.get_mut(kind).map(|x| *x -= amount);
+
+        if let Some(val) = self.base_stats.get_mut(kind) {
+            *val -= amount;
+        }
+
         Ok(())
     }
 
@@ -348,6 +370,55 @@ impl<'i> Character<'i> {
     //    \_/ \__,_|_|_|\__,_|_|\__|\__, |
     //                              |___/
 
+    /// Return a condition equivalent to the union of all item's conditions.
+    pub fn all_conditions(&self) -> Condition {
+        self.iter_items().fold(Condition::new(), |acc, item| {
+            Condition::and(acc, item.conditions.clone())
+        })
+    }
+
+    /// Compute an approximate smithmage weight value required to complie to a condition.
+    pub fn condition_overflow(&self, cond: &Condition) -> f64 {
+        // NOTE: this is costly and there may be a way to implement cleaningly a cache mechanic.
+        let caracs = self.get_caracs();
+
+        let atom_overflow = |atom: &ConditionAtom| match atom {
+            ConditionAtom::Stats(kind, order, target) => {
+                let current = caracs.get_carac(kind);
+
+                if current.cmp(target) != *order {
+                    kind.smithmage_weight()
+                        * f64::from((current - target).abs() + 1)
+                } else {
+                    0.
+                }
+            }
+            ConditionAtom::RestrictSetBonuses => {
+                let count_synergies: u8 =
+                    self.iter_set_synergies().map(|(_, count)| count).sum();
+
+                if count_synergies > 2 {
+                    CaracKind::AP.smithmage_weight()
+                        * f64::from(count_synergies - 2)
+                } else {
+                    0.
+                }
+            }
+            ConditionAtom::Other(_) => 0.,
+        };
+
+        cond.clauses()
+            .iter()
+            .map(|clause| {
+                clause
+                    .iter()
+                    .map(|atom| atom_overflow(atom))
+                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .expect("Empty clause are not allowed")
+            })
+            .sum()
+    }
+
     pub fn count_item_conflicts(&self) -> u8 {
         let mut conflicts = 0;
 
@@ -355,7 +426,7 @@ impl<'i> Character<'i> {
         for (i, item1) in self.item_slots.iter().enumerate() {
             if let Some(item1) = item1.item {
                 // Read second item
-                for item2 in &self.item_slots[i + 1..self.item_slots.len()] {
+                for item2 in &self.item_slots[(i + 1)..self.item_slots.len()] {
                     if let Some(item2) = item2.item {
                         if item1._id == item2._id
                             && (item1.set_id.is_some()
@@ -508,8 +579,12 @@ impl Blackbox for Character<'_> {
             ]
         };
 
-        let target = |target: f64, width: f64, x: f64| -> f64 {
+        let target_min = |target: f64, width: f64, x: f64| -> f64 {
             1. / (1. + (-(x + width - target) / width).exp())
+        };
+        let target_zero = |width: f64, x: f64| -> f64 {
+            let nx = 2. * x / width; // normalize x
+            (1. - (nx.exp() - (-nx).exp()) / (nx.exp() + (-nx).exp())).powi(2)
         };
 
         let caracs = self.get_caracs();
@@ -524,13 +599,16 @@ impl Blackbox for Character<'_> {
                         100. / kind.smithmage_weight()
                     }
                 };
-                target(*target_val as f64, width, val)
+                target_min((*target_val).into(), width, val)
             })
             .product();
 
         let count_item_conflicts = self.count_item_conflicts();
         let conflicts_weight = 0.8f64.powi(count_item_conflicts.into());
 
-        targets_weight * conflicts_weight
+        let conditions_weight =
+            target_zero(800., self.condition_overflow(&self.all_conditions()));
+
+        targets_weight * conflicts_weight * conditions_weight
     }
 }
