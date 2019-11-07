@@ -31,7 +31,8 @@ fn main() -> io::Result<()> {
     };
     let equipements: Vec<Equipement> = equipements
         .into_iter()
-        .filter(|item| item.level >= 150 || item.item_type == ItemType::Dofus)
+        // .filter(|item| item.level >= 150 || item.item_type ==
+        // ItemType::Dofus)
         .map(|mut item| {
             // Fix trophy conditions, it seems to be overall a good fix except
             // for a few exceptions, e.g.:
@@ -47,14 +48,14 @@ fn main() -> io::Result<()> {
                     })
                     .sum();
 
-                if smithmage_value >= 100. {
-                    item.conditions =
-                        ConditionAtom::RestrictSetBonuses.into();
+                if smithmage_value >= 72. {
+                    item.conditions = ConditionAtom::RestrictSetBonuses.into();
                 }
             }
 
             item
         })
+        .inspect(|e| println!("{}: {:?}", e.name, e.conditions))
         .collect();
 
     // --- Index per slot
@@ -146,6 +147,10 @@ fn main() -> io::Result<()> {
                 CaracKind::Power,
                 CaracKind::Critical,
                 CaracKind::CriticalDamage,
+                CaracKind::Damage(Element::Air),
+                CaracKind::Damage(Element::Earth),
+                CaracKind::Damage(Element::Fire),
+                CaracKind::Damage(Element::Water),
                 CaracKind::Wisdom,
                 CaracKind::APResistance,
                 CaracKind::MPResistance,

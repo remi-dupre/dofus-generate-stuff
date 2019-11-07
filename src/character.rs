@@ -454,6 +454,7 @@ impl<'i> Character<'i> {
 pub enum RawCaracsValue<'c> {
     Carac(&'c CaracKind),
     PowStats(Element),
+    MeanExtraDamage(Element),
     Resiliance,
 }
 
@@ -506,6 +507,7 @@ impl RawCaracs<'_> {
                     .map(|&elem| self.get_raw_carac(&Stats(elem)))
                     .sum::<i16>()
             }
+            Damage(elem) => res + self.get_raw_carac(&Damage(*elem)),
             Prospecting => res + self.get_raw_carac(&Stats(Water)) / 10,
             Pods => res + 5 * self.get_raw_carac(&Stats(Earth)),
             Dodge | Lock => res + self.get_raw_carac(&Stats(Air)) / 10,
@@ -520,15 +522,18 @@ impl RawCaracs<'_> {
     pub fn eval(&self, value: &RawCaracsValue) -> f64 {
         match value {
             RawCaracsValue::Carac(carac) => self.get_carac(carac) as f64,
-            RawCaracsValue::PowStats(element) => match element {
+            RawCaracsValue::PowStats(elem) => match elem {
                 Element::Neutral => {
                     self.eval(&RawCaracsValue::PowStats(Element::Earth))
                 }
                 _ => {
-                    self.get_carac(&CaracKind::Stats(*element)) as f64
+                    self.get_carac(&CaracKind::Stats(*elem)) as f64
                         + self.get_carac(&CaracKind::Power) as f64
                 }
             },
+            RawCaracsValue::MeanExtraDamage(elem) => {
+                self.mean_extra_damage(*elem)
+            }
             RawCaracsValue::Resiliance => self.resiliance(),
         }
     }
@@ -554,6 +559,13 @@ impl RawCaracs<'_> {
         let mean_res = self.mean_per_resistance();
         vitality / (1. - mean_res / 100.)
     }
+
+    pub fn mean_extra_damage(&self, element: Element) -> f64 {
+        let base_dmg = self.get_carac(&CaracKind::Damage(element)) as f64;
+        let critical = self.get_carac(&CaracKind::Critical) as f64;
+        let crit_dmg = self.get_carac(&CaracKind::CriticalDamage) as f64;
+        base_dmg + (crit_dmg * critical / 100.)
+    }
 }
 
 //  ____                      _
@@ -571,12 +583,29 @@ impl Blackbox for Character<'_> {
 
             [
                 (Carac(&AP), 10),
-                (Carac(&MP), 6),
+                (Carac(&MP), 5),
                 (Carac(&APResistance), 40),
                 (Carac(&MPResistance), 40),
-                (PowStats(Element::Air), 900),
-                (Resiliance, 6000),
+                (PowStats(Element::Air), 0),
+                (PowStats(Element::Earth), 0),
+                (PowStats(Element::Fire), 0),
+                (PowStats(Element::Water), 0),
+                (Carac(&Critical), 30),
+                (MeanExtraDamage(Element::Air), 200),
+                (MeanExtraDamage(Element::Earth), 200),
+                (MeanExtraDamage(Element::Fire), 200),
+                (MeanExtraDamage(Element::Water), 200),
+                (Resiliance, 4000),
             ]
+            // [
+            //     (Carac(&AP), 10),
+            //     (Carac(&MP), 6),
+            //     (Carac(&APResistance), 40),
+            //     (Carac(&MPResistance), 40),
+            //     (PowStats(Element::Air), 900),
+            //     (MeanExtraDamage(Element::Air), 150),
+            //     (Resiliance, 6000),
+            // ]
         };
 
         let target_min = |target: f64, width: f64, x: f64| -> f64 {
@@ -597,6 +626,9 @@ impl Blackbox for Character<'_> {
                     RawCaracsValue::PowStats(_) => 100.,
                     RawCaracsValue::Carac(kind) => {
                         100. / kind.smithmage_weight()
+                    }
+                    RawCaracsValue::MeanExtraDamage(elem) => {
+                        100. / CaracKind::Damage(*elem).smithmage_weight()
                     }
                 };
                 target_min((*target_val).into(), width, val)

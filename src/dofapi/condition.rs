@@ -33,7 +33,8 @@ impl ConditionAtom {
     }
 }
 
-/// A clause of atoms, i.e. written in the form (atom1 or atom2 ...) and (atom_i or atom_j ...) ...
+/// A clause of atoms, i.e. written in the form (atom1 or atom2 ...) and
+/// (atom_i or atom_j ...) ...
 #[derive(Clone, Debug, Default)]
 pub struct Condition(Vec<Vec<ConditionAtom>>);
 
@@ -56,10 +57,11 @@ impl Condition {
         }
     }
 
-    /// Build a clause which is true if and only if both `cond1` and `cond2` are true.
+    /// Build a clause which is true if and only if both `cond1` and `cond2`
+    /// are true.
     pub fn and(cond1: Self, cond2: Self) -> Self {
-        // Function to check if a clause is stronger than another. Note that this is a partial
-        // order, two clauses may not be comparable.
+        // Function to check if a clause is stronger than another. Note that
+        // this is a partial order, two clauses may not be comparable.
         let clause_stronger_than = |clause1: &Vec<ConditionAtom>,
                                     clause2: &Vec<ConditionAtom>|
          -> bool {
@@ -99,50 +101,6 @@ impl From<ConditionAtom> for Condition {
         Condition(vec![vec![atom]])
     }
 }
-
-// impl Condition {
-//     pub fn expand_and(&self) -> impl Iterator<Item = &Condition> {
-//         match self {
-//             Condition::And(terms) => terms
-//                 .iter()
-//                 .map(|term| term.expand_and())
-//                 .flatten()
-//                 .collect::<Vec<_>>()
-//                 .into_iter(),
-//             other => vec![other].into_iter(),
-//         }
-//     }
-//
-//     /// Check if this condition is stronger than another condition. In other terms if the other condition will always be true as long as this one is.
-//     pub fn stronger_than(&self, other: &Condition) -> bool {
-//         use Condition::*;
-//         match (self, other) {
-//             (And(terms), _) => {
-//                 terms.iter().any(|term| term.stronger_than(other))
-//             }
-//             (_, And(terms)) => {
-//                 terms.iter().all(|term| term.stronger_than(self))
-//             }
-//             (Or(terms), _) => {
-//                 terms.iter().all(|term| term.stronger_than(other))
-//             }
-//             (_, Or(terms)) => {
-//                 terms.iter().any(|term| term.stronger_than(other))
-//             }
-//             (Stats(lkind, lord, lval), Stats(rkind, rord, rval))
-//                 if lkind == rkind
-//                     && (lord == rord || *lord == Ordering::Equal) =>
-//             {
-//                 lval == rval
-//                     || lval.cmp(rval) == *lord
-//                     || lval.cmp(rval) == *rord
-//             }
-//             (RestrictSetBonuses, RestrictSetBonuses) => true,
-//             (Other(s1), Other(s2)) => s1 == s2,
-//             _ => false,
-//         }
-//     }
-// }
 
 //  ____                      _       _ _
 // |  _ \  ___  ___  ___ _ __(_) __ _| (_)_______ _ __
