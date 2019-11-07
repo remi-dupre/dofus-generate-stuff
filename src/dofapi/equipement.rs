@@ -24,9 +24,29 @@ pub enum ItemType {
     Ring,
     Shield,
     Trophy,
+    Petsmount,
+    Pet,
 
     #[serde(rename = "Living object")]
     LivingObject,
+
+    #[serde(rename = "Mounts")]
+    Mount,
+
+    Axe,
+    Sword,
+    Staff,
+    Wand,
+    Bow,
+    Dagger,
+    Shovel,
+    Hammer,
+    Scythe,
+    Pickaxe,
+    Tool,
+
+    #[serde(rename = "Soul stone")]
+    SoulStone,
 }
 
 #[derive(Deserialize, Debug)]
@@ -37,17 +57,23 @@ pub struct Equipement {
     #[serde(rename = "ankamaId")]
     pub ankama_id: u64,
 
-    #[serde(rename = "imgUrl")]
-    pub img_url: String,
+    pub _id:   u64,
+    pub name:  String,
+    pub level: u8,
+    pub url:   String,
 
-    pub _id:         u64,
-    pub name:        String,
-    pub level:       u8,
-    pub url:         String,
+    #[serde(
+        default,
+        rename = "setId",
+        deserialize_with = "deserialize_set_id"
+    )]
+    pub set_id: Option<u64>,
+
+    #[serde(default)]
     pub description: String,
 
-    #[serde(rename = "setId", deserialize_with = "deserialize_set_id")]
-    pub set_id: Option<u64>,
+    #[serde(rename = "imgUrl")]
+    pub img_url: String,
 
     #[serde(default)]
     pub statistics: CaracLines,

@@ -24,17 +24,35 @@ fn main() -> io::Result<()> {
     // ---
     eprintln!("-- Loading data...");
 
-    let sets: Vec<Set> = {
+    let sets: HashMap<u64, Set> = {
         let file = File::open("./data/sets.json")?;
-        serde_json::from_reader(io::BufReader::new(file))?
+        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
+        vec.into_iter().map(|set: Set| (set._id, set)).collect()
     };
-    let sets: HashMap<u64, Set> =
-        sets.into_iter().map(|set| (set._id, set)).collect();
 
-    let equipements: Vec<Equipement> = {
+    let mut equipements: Vec<Equipement> = {
         let file = File::open("./data/allequipments.json")?;
         serde_json::from_reader(io::BufReader::new(file))?
     };
+
+    equipements.extend({
+        let file = File::open("./data/mounts.json")?;
+        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
+        vec
+    });
+
+    equipements.extend({
+        let file = File::open("./data/pets.json")?;
+        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
+        vec
+    });
+
+    equipements.extend({
+        let file = File::open("./data/allweapons.json")?;
+        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
+        vec
+    });
+
     let equipements: Vec<Equipement> = equipements
         .into_iter()
         // .filter(|item| item.level >= 150 || item.item_type ==
