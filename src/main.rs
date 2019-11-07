@@ -10,7 +10,7 @@ extern crate rayon;
 extern crate regex;
 extern crate serde_json;
 
-use crate::character::{Character, RawCaracsValue};
+use crate::character::Character;
 use crate::dofapi::{
     CaracKind, ConditionAtom, Element, Equipement, ItemType, Set,
 };
@@ -84,26 +84,18 @@ fn main() -> io::Result<()> {
 
     // ---
     eprintln!("-- Build random stuffs...");
-    let target = {
-        use CaracKind::*;
-        use RawCaracsValue::*;
-        &[
-            (Carac(&AP), 10.),
-            (Carac(&MP), 6.),
-            (Carac(&APResistance), 40.),
-            (Carac(&MPResistance), 40.),
-            (PowStats(Element::Air), 1100.),
-            (MeanExtraDamage(Element::Air), 150.),
-            (Resiliance, 6000.),
-        ]
+
+    let target: Vec<_> = {
+        let file = File::open("input.json")?;
+        serde_json::from_reader(io::BufReader::new(file))?
     };
 
     let best =
-        optimize_character(Character::new(&sets), 8, target, &equipements)
+        optimize_character(Character::new(&sets), 8, &target, &equipements)
             .into_iter()
             .max_by(|c1, c2| {
-                let eval1 = eval_character(c1, target);
-                let eval2 = eval_character(c2, target);
+                let eval1 = eval_character(c1, &target);
+                let eval2 = eval_character(c2, &target);
                 eval1.partial_cmp(&eval2).unwrap()
             });
 
@@ -139,6 +131,8 @@ fn main() -> io::Result<()> {
                 CaracKind::Wisdom,
                 CaracKind::APResistance,
                 CaracKind::MPResistance,
+                CaracKind::Lock,
+                CaracKind::Dodge,
                 CaracKind::PerResistance(Element::Air),
                 CaracKind::PerResistance(Element::Earth),
                 CaracKind::PerResistance(Element::Fire),

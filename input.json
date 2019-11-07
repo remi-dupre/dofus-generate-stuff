@@ -1,0 +1,9 @@
+[
+  ["Resiliance", 10000],
+  [{"Carac": "Lock"}, 150],
+  [{"Carac": "AP"}, 11],
+  [{"Carac": "MP"}, 6],
+  [{"PowStats": "Air"}, 800],
+  [{"Carac": "MPResistance"}, 70],
+  [{"Carac": "APResistance"}, 70]
+]

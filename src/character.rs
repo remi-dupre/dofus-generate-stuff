@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
+use serde::Deserialize;
+
 use crate::dofapi::{
     CaracKind, Condition, ConditionAtom, Element, Equipement, ItemType, Set,
 };
@@ -600,14 +602,15 @@ impl RawCaracs<'_> {
 //
 
 /// Enumeration of values that can be computed from a `RawCaracs`.
-pub enum RawCaracsValue<'c> {
-    Carac(&'c CaracKind),
+#[derive(Debug, Deserialize)]
+pub enum RawCaracsValue {
+    Carac(CaracKind),
     PowStats(Element),
     MeanExtraDamage(Element),
     Resiliance,
 }
 
-impl RawCaracsValue<'_> {
+impl RawCaracsValue {
     pub fn approx_smithmage_weight(&self) -> f64 {
         match self {
             RawCaracsValue::Carac(kind) => kind.smithmage_weight(),

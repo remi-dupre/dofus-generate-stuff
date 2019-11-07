@@ -15,8 +15,6 @@ where
     //   <==> lambda  ==  exp(ln(1e-3) / (0.75 * steps))
     let lambda = (1e-3f64.ln() / (0.75 * f64::from(steps))).exp();
     let init_eval = eval(&init);
-    let mut i = 0;
-    let mut last_change = 0;
 
     let (ret, _eval) = (1..=steps)
         .map(|step| {
@@ -26,16 +24,12 @@ where
             let new = walk(curr.clone(), rng);
             let new_eval = eval(&new);
 
-            i += 1;
-
             if new_eval > (1. - threshold) * curr_eval {
-                last_change = i;
                 (new, new_eval)
             } else {
                 (curr, curr_eval)
             }
         });
 
-    println!("last change: {}/{}", last_change, steps);
     ret
 }

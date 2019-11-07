@@ -41,7 +41,6 @@ fn walk_character<'i>(
         {
             let _ = new.carac_spend_or_seek(kind, 1, from);
         }
-
         new
     }
 }
