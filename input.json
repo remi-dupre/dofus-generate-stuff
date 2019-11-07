@@ -4,6 +4,7 @@
   [{"Carac": "AP"}, 11],
   [{"Carac": "MP"}, 6],
   [{"PowStats": "Air"}, 800],
-  [{"Carac": "MPResistance"}, 70],
-  [{"Carac": "APResistance"}, 70]
+  [{"Carac": "MP Resistance"}, 70],
+  [{"Carac": "AP Resistance"}, 70],
+  [{"Carac": "AP Reduction"}, 100]
 ]
