@@ -71,25 +71,25 @@ impl Condition {
         };
 
         let mut clauses = cond1.into_clauses();
-
         for next_clause in cond2.into_clauses() {
-            let has_stronger_clause = clauses.iter().any(|prev_clause| {
+            // If the clause is weaker than current expression abort insertion
+            if clauses.iter().any(|prev_clause| {
                 clause_stronger_than(prev_clause, &next_clause)
-            });
-
-            if has_stronger_clause {
+            }) {
                 continue;
             }
 
-            let weaker_clause = clauses.iter_mut().find(|prev_clause| {
-                clause_stronger_than(&next_clause, prev_clause)
-            });
-
-            if let Some(weaker_clause) = weaker_clause {
-                *weaker_clause = next_clause;
-            } else {
-                clauses.push(next_clause);
+            // Otherwises remove all weaker clauses from the expression and
+            // insert
+            let mut i = 0;
+            while i < clauses.len() {
+                if clause_stronger_than(&next_clause, &clauses[i]) {
+                    clauses.swap_remove(i);
+                } else {
+                    i += 1;
+                }
             }
+            clauses.push(next_clause);
         }
 
         Condition(clauses)
