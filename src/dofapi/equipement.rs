@@ -145,10 +145,7 @@ pub fn fix_all_trophy(db: &mut [Equipement]) {
                 });
 
             if is_strong {
-                println!("[yes]: {:<20} {}", item.name, item.url);
                 item.conditions = ConditionAtom::RestrictSetBonuses.into();
-            } else {
-                println!("[ no]: {:<20} {}", item.name, item.url);
             }
         })
 }

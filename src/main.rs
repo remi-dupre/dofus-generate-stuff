@@ -100,7 +100,10 @@ fn main() -> io::Result<()> {
             .max_by(|c1, c2| {
                 let eval1 = eval_character(c1, &target);
                 let eval2 = eval_character(c2, &target);
-                eval1.partial_cmp(&eval2).unwrap()
+                eval1.partial_cmp(&eval2).unwrap_or_else(|| {
+                    println!("{} incomparable à {}", eval1, eval2);
+                    std::cmp::Ordering::Equal
+                })
             });
 
     // ---
@@ -156,6 +159,10 @@ fn main() -> io::Result<()> {
                 "conditions ({}): {:?}",
                 character.condition_overflow(&character.all_conditions()),
                 character.all_conditions()
+            );
+            println!(
+                "\nstats: {:?}",
+                caracs.eval(&character::RawCaracsValue::PerResVariance)
             );
         }
     }

@@ -5,7 +5,7 @@ use crate::character::{Character, RawCaracsValue};
 use crate::dofapi::{CaracKind, Element, Equipement};
 use crate::rls::rls;
 
-const STEPS: u32 = 100_000;
+const STEPS: u32 = 1_000_000;
 const ASSIGNABLE_CARACS: &[CaracKind] = &[
     CaracKind::Vitality,
     CaracKind::Wisdom,
@@ -64,7 +64,21 @@ pub fn eval_character(
         .map(|(target_type, target_val)| {
             let val = caracs.eval(target_type);
             let width = 100. / target_type.approx_smithmage_weight();
-            target_min((*target_val).into(), width, val)
+            let invert = if target_type.is_decreasing() { -1. } else { 1. };
+            let ret = target_min(
+                f64::from(*target_val) * invert,
+                width,
+                val * invert,
+            );
+            if ret.is_nan() {
+                println!(
+                    "{:?} {} {}",
+                    target_type,
+                    val,
+                    target_type.approx_smithmage_weight()
+                );
+            }
+            ret
         })
         .product();
 

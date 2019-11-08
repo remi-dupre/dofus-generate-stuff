@@ -560,6 +560,21 @@ impl RawCaracs<'_> {
             RawCaracsValue::MeanExtraDamage(elem) => {
                 self.mean_extra_damage(*elem)
             }
+            RawCaracsValue::PerResVariance => {
+                let kinds = [
+                    CaracKind::PerResistance(Element::Air),
+                    CaracKind::PerResistance(Element::Earth),
+                    CaracKind::PerResistance(Element::Fire),
+                    CaracKind::PerResistance(Element::Water),
+                    CaracKind::PerResistance(Element::Neutral),
+                ];
+
+                let mean = self.mean_per_resistance();
+                let square_diffs = kinds
+                    .iter()
+                    .map(|kind| (self.get_carac(kind) as f64 - mean).powi(2));
+                (square_diffs.sum::<f64>() / 5.).sqrt()
+            }
             RawCaracsValue::Resiliance => self.resiliance(),
         }
     }
@@ -607,6 +622,7 @@ pub enum RawCaracsValue {
     Carac(CaracKind),
     PowStats(Element),
     MeanExtraDamage(Element),
+    PerResVariance,
     Resiliance,
 }
 
@@ -623,6 +639,16 @@ impl RawCaracsValue {
             RawCaracsValue::MeanExtraDamage(elem) => {
                 CaracKind::Damage(*elem).smithmage_weight()
             }
+            RawCaracsValue::PerResVariance => {
+                CaracKind::PerResistance(Element::Neutral).smithmage_weight()
+            }
+        }
+    }
+
+    pub fn is_decreasing(&self) -> bool {
+        match self {
+            Self::PerResVariance => true,
+            _ => false,
         }
     }
 }
