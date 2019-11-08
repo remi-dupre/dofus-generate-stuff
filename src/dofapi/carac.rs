@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::convert::From;
+use std::convert::{From, Into};
 use std::fmt;
 use std::ops::RangeInclusive;
 
@@ -211,20 +211,54 @@ impl<'de> de::Visitor<'de> for CaracKindVisitor {
 
 // Deserializer for item line
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CaracLines(HashMap<CaracKind, RangeInclusive<i16>>);
 
 impl CaracLines {
+    /// Use the carac lines as a map
     pub fn as_map(&self) -> &HashMap<CaracKind, RangeInclusive<i16>> {
-        match self {
-            CaracLines(map) => map,
-        }
+        let Self(map) = self;
+        map
+    }
+
+    /// Check if this item's statistics are greater than or equal to another
+    /// item. This is essentialy usefull to fix trophy conditions.
+    pub fn is_stronger_than(&self, other: &Self) -> bool {
+        other.as_map().iter().all(|(kind, other_bounds)| {
+            // Check if all stats of `other` are covered by this item.
+            self.as_map()
+                .get(kind)
+                .map(|self_bounds| self_bounds.start() >= other_bounds.end())
+                .unwrap_or(*other_bounds.end() <= 0)
+        }) && self.as_map().iter().all(|(kind, self_bounds)| {
+            // Check if all stats of this item are covered by `other`.
+            // This is required since there may be some negative values in this
+            // item that are not in `other`.
+            other
+                .as_map()
+                .get(kind)
+                .map(|other_bounds| self_bounds.start() >= other_bounds.end())
+                .unwrap_or(*self_bounds.start() >= 0)
+        })
     }
 }
 
 impl Default for CaracLines {
     fn default() -> Self {
         CaracLines(HashMap::new())
+    }
+}
+
+impl From<HashMap<CaracKind, RangeInclusive<i16>>> for CaracLines {
+    fn from(map: HashMap<CaracKind, RangeInclusive<i16>>) -> Self {
+        Self(map)
+    }
+}
+
+impl From<CaracLines> for HashMap<CaracKind, RangeInclusive<i16>> {
+    fn from(caracs: CaracLines) -> Self {
+        let CaracLines(map) = caracs;
+        map
     }
 }
 

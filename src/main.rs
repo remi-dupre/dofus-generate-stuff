@@ -10,15 +10,15 @@ extern crate rayon;
 extern crate regex;
 extern crate serde_json;
 
-use crate::character::Character;
-use crate::dofapi::{
-    CaracKind, ConditionAtom, Element, Equipement, ItemType, Set,
-};
-use crate::search::{eval_character, optimize_character};
-
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
+
+use regex::Regex;
+
+use crate::character::Character;
+use crate::dofapi::{fix_all_trophy, CaracKind, Element, Equipement, Set};
+use crate::search::{eval_character, optimize_character};
 
 fn main() -> io::Result<()> {
     // ---
@@ -53,29 +53,33 @@ fn main() -> io::Result<()> {
         vec
     });
 
+    fix_all_trophy(&mut equipements);
     let equipements: Vec<Equipement> = equipements
         .into_iter()
-        // .filter(|item| item.level >= 150 || item.item_type ==
-        // ItemType::Dofus)
         .map(|mut item| {
-            // Fix trophy conditions, it seems to be overall a good fix except
-            // for a few exceptions, e.g.:
-            //  - Major Barbarian
-            //  - Major Transporter
-            //  - Cantile's Boots
-            if item.item_type == ItemType::Trophy {
-                let smithmage_value: f64 = item
-                    .statistics
-                    .as_map()
-                    .iter()
-                    .map(|(kind, value)| {
-                        kind.smithmage_weight() * f64::from(*value.start())
-                    })
-                    .sum();
-
-                if smithmage_value >= 72. {
-                    item.conditions = ConditionAtom::RestrictSetBonuses.into();
+            if item.is_weapon() {
+                // Fix weapon effects: remove PA reduction and damage lines
+                lazy_static! {
+                    static ref RE_DMG: Regex = Regex::new(r"\(.*\)").unwrap();
                 }
+
+                item.statistics = HashMap::from(item.statistics)
+                    .into_iter()
+                    .filter(|carac| match carac {
+                        (CaracKind::AP, bounds) => {
+                            // Weapons AP reduction is strangly formatted and
+                            // have bounds of different sizes
+                            bounds.start() * bounds.end() >= 0
+                        }
+                        (CaracKind::Special(desc), _) => {
+                            // Weapons damage line are surrounded with
+                            // parenthesis
+                            !RE_DMG.is_match(desc)
+                        }
+                        _ => true,
+                    })
+                    .collect::<HashMap<_, _>>()
+                    .into();
             }
 
             item
@@ -91,7 +95,7 @@ fn main() -> io::Result<()> {
     };
 
     let best =
-        optimize_character(Character::new(&sets), 8, &target, &equipements)
+        optimize_character(Character::new(&sets), 32, &target, &equipements)
             .into_iter()
             .max_by(|c1, c2| {
                 let eval1 = eval_character(c1, &target);
@@ -108,7 +112,10 @@ fn main() -> io::Result<()> {
             character
                 .item_slots
                 .iter()
-                .for_each(|i| println!(" {:^46}", i.get_item().unwrap().name));
+                .filter_map(|slot| slot.get_item())
+                .for_each(|item| {
+                    println!(" {:^46}   {}", item.name, item.url)
+                });
             println!("------------------------------------------------");
 
             let stats = &[

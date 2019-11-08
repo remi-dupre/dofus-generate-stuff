@@ -533,7 +533,7 @@ impl RawCaracs<'_> {
                     .map(|&elem| self.get_raw_carac(&Stats(elem)))
                     .sum::<i16>()
             }
-            Damage(elem) => res + self.get_raw_carac(&Damage(*elem)),
+            Damage(_elem) => res + self.get_raw_carac(&RawDamage),
             Prospecting => res + self.get_raw_carac(&Stats(Water)) / 10,
             Pods => res + 5 * self.get_raw_carac(&Stats(Earth)),
             Dodge | Lock => res + self.get_raw_carac(&Stats(Air)) / 10,

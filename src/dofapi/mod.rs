@@ -9,3 +9,5 @@ pub use condition::{Condition, ConditionAtom};
 pub use effect::{DamageLine, Element};
 pub use equipement::{Equipement, ItemType};
 pub use set::Set;
+
+pub use equipement::fix_all_trophy;

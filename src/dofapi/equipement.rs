@@ -1,9 +1,10 @@
+use std::collections::HashSet;
 use std::fmt;
 
 use serde::{de, Deserialize, Deserializer};
 
 use crate::dofapi::carac::CaracLines;
-use crate::dofapi::condition::Condition;
+use crate::dofapi::condition::{Condition, ConditionAtom};
 
 //  _____            _                                 _
 // | ____|__ _ _   _(_)_ __   ___ _ __ ___   ___ _ __ | |_
@@ -49,7 +50,23 @@ pub enum ItemType {
     SoulStone,
 }
 
-#[derive(Deserialize, Debug)]
+/// List of all kinds of weapons.
+const WEAPON_TYPES: &[ItemType] = &[
+    ItemType::Axe,
+    ItemType::Sword,
+    ItemType::Staff,
+    ItemType::Wand,
+    ItemType::Bow,
+    ItemType::Dagger,
+    ItemType::Shovel,
+    ItemType::Hammer,
+    ItemType::Scythe,
+    ItemType::Pickaxe,
+    ItemType::Tool,
+    ItemType::SoulStone,
+];
+
+#[derive(Clone, Deserialize, Debug)]
 pub struct Equipement {
     #[serde(rename = "type")]
     pub item_type: ItemType,
@@ -80,6 +97,60 @@ pub struct Equipement {
 
     #[serde(default)]
     pub conditions: Condition,
+}
+
+impl Equipement {
+    /// Check wether this equipement is a weapon
+    pub fn is_weapon(&self) -> bool {
+        WEAPON_TYPES.contains(&self.item_type)
+    }
+}
+
+/// Fix trophy conditions as big trophy are not referenced with a condition to
+/// use them in the website.
+///
+/// This will infer it by finding out if a trophy is strictly better than
+/// another one in the database.
+pub fn fix_all_trophy(db: &mut [Equipement]) {
+    let trophy_list: Vec<_> = db
+        .into_iter()
+        .filter(|item| item.item_type == ItemType::Trophy)
+        .map(|item| item.clone())
+        .collect();
+
+    db.iter_mut()
+        .filter(|item| item.item_type == ItemType::Trophy)
+        .for_each(|item| {
+            // A trophy is unique if no other trophy covers all its positive
+            // bonuses.
+            let is_unique = !trophy_list
+                .iter()
+                .filter(|other| other.level == item.level)
+                .any(|other| {
+                    let other_lines: HashSet<_> =
+                        other.statistics.as_map().keys().collect();
+                    item.statistics
+                        .as_map()
+                        .iter()
+                        .filter(|(_kind, bounds)| *bounds.start() >= 0)
+                        .all(|(kind, _bounds)| other_lines.contains(kind))
+                });
+
+            // A trophy is strong if it is unique or better than another trophy
+            let is_strong = is_unique
+                || trophy_list.iter().any(|other| {
+                    item._id != other._id
+                        && item.level <= other.level
+                        && item.statistics.is_stronger_than(&other.statistics)
+                });
+
+            if is_strong {
+                println!("[yes]: {:<20} {}", item.name, item.url);
+                item.conditions = ConditionAtom::RestrictSetBonuses.into();
+            } else {
+                println!("[ no]: {:<20} {}", item.name, item.url);
+            }
+        })
 }
 
 //  ____                      _       _ _
