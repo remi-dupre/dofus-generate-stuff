@@ -16,12 +16,16 @@ script:
  - cargo +nightly fmt --all -- --check
 
 before_deploy:
+ - if [ ! -d data ]; then ./download_data; fi
  - cargo build --release
- - ./download_data.sh
  - mkdir dofus-generate-stuff \
     && cp target/release/dofus-generate-stuff dofus-generate-stuff \
     && cp -r data dofus-generate-stuff
  - tar -czf dofus-generate-stuff.tar.gz dofus-generate-stuff
+
+cache:
+  directories:
+   - data
 
 deploy:
   provider: releases
