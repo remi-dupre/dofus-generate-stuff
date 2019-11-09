@@ -31,7 +31,7 @@ fn main() -> io::Result<()> {
     };
 
     let mut equipements: Vec<Equipement> = {
-        let file = File::open("./data/allequipments.json")?;
+        let file = File::open("./data/equipments.json")?;
         serde_json::from_reader(io::BufReader::new(file))?
     };
 
@@ -48,7 +48,7 @@ fn main() -> io::Result<()> {
     });
 
     equipements.extend({
-        let file = File::open("./data/allweapons.json")?;
+        let file = File::open("./data/weapons.json")?;
         let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
         vec
     });

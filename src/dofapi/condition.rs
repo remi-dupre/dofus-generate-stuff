@@ -33,6 +33,32 @@ impl ConditionAtom {
     }
 }
 
+impl From<&str> for ConditionAtom {
+    fn from(from: &str) -> Self {
+        lazy_static! {
+            static ref RE_CMP: Regex =
+                Regex::new(r"(?P<carac>.+) (?P<sign>>|<) (?P<value>\d+)")
+                    .unwrap();
+        }
+
+        if let Some(captures) = RE_CMP.captures(from) {
+            let kind = captures.name("carac").unwrap().as_str().into();
+            let ordering = match captures.name("sign").unwrap().as_str() {
+                "<" => Ordering::Less,
+                ">" => Ordering::Greater,
+                _ => unreachable!(),
+            };
+            let value = captures.name("value").unwrap().as_str().parse();
+
+            if let Ok(value) = value {
+                return ConditionAtom::Stats(kind, ordering, value);
+            }
+        }
+
+        ConditionAtom::Other(String::from(from))
+    }
+}
+
 /// A clause of atoms, i.e. written in the form (atom1 or atom2 ...) and
 /// (atom_i or atom_j ...) ...
 #[derive(Clone, Debug, Default)]
@@ -117,7 +143,7 @@ impl<'de> Deserialize<'de> for Condition {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(ConditionVisitor)
+        deserializer.deserialize_seq(ConditionVisitor)
     }
 }
 
@@ -128,52 +154,19 @@ impl<'de> de::Visitor<'de> for ConditionVisitor {
         formatter.write_str("A condition")
     }
 
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    fn visit_seq<D>(self, mut access: D) -> Result<Self::Value, D::Error>
     where
-        E: de::Error,
+        D: de::SeqAccess<'de>,
     {
-        Ok(v.into())
-    }
-}
+        let mut condition = Vec::new();
 
-impl From<&str> for Condition {
-    fn from(from: &str) -> Self {
-        lazy_static! {
-            static ref RE_CMP: Regex =
-                Regex::new(r"(?P<carac>.+) (?P<sign>>|<) (?P<value>\d+)")
-                    .unwrap();
+        while let Some(line) = access.next_element()? {
+            let line: String = line;
+            condition.push(
+                line.split("or").map(|atom| atom.trim().into()).collect(),
+            );
         }
 
-        let try_into_eq = |from: &str| {
-            if let Some(captures) = RE_CMP.captures(from) {
-                let kind = captures.name("carac").unwrap().as_str().into();
-                let ordering = match captures.name("sign").unwrap().as_str() {
-                    "<" => Ordering::Less,
-                    ">" => Ordering::Greater,
-                    _ => unreachable!(),
-                };
-                let value = captures.name("value").unwrap().as_str().parse();
-
-                if let Ok(value) = value {
-                    return Some(ConditionAtom::Stats(kind, ordering, value));
-                }
-            }
-            None
-        };
-
-        Condition(
-            from.split(" and ")
-                .map(|clause| {
-                    clause
-                        .split(" or ")
-                        .map(|atom| {
-                            try_into_eq(atom).unwrap_or_else(|| {
-                                ConditionAtom::Other(String::from(atom))
-                            })
-                        })
-                        .collect()
-                })
-                .collect(),
-        )
+        Ok(Condition(condition))
     }
 }

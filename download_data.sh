@@ -12,7 +12,7 @@ git clone --branch usability \
     && node ./dist/app.js -g dofus -l english -c pet --all \
     && node ./dist/app.js -g dofus -l english -c mount --all )
 
-cp crawlit/data/dofus/allequipments.json data/equipements.json
+cp crawlit/data/dofus/allequipments.json data/equipments.json
 cp crawlit/data/dofus/allweapons.json    data/weapons.json
 cp crawlit/data/dofus/pet.json           data/pets.json
 cp crawlit/data/dofus/mount.json         data/mounts.json
