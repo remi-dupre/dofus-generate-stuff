@@ -16,7 +16,7 @@ use std::io;
 
 use regex::Regex;
 
-use crate::character::Character;
+use crate::character::{Character, RawCaracsValue};
 use crate::dofapi::{fix_all_trophy, CaracKind, Element, Equipement, Set};
 use crate::search::{eval_character, optimize_character};
 
@@ -86,22 +86,34 @@ fn main() -> io::Result<()> {
         })
         .collect();
 
+    let equipements: Vec<_> = equipements
+        .into_iter()
+        .filter(|item| item.level <= 200)
+        .collect();
+
     // ---
     eprintln!("-- Build random stuffs...");
 
-    let target: Vec<_> = {
+    let target: Vec<(RawCaracsValue, f64)> = {
         let file = File::open("input.json")?;
         serde_json::from_reader(io::BufReader::new(file))?
     };
 
+    for target_line in &target {
+        if let RawCaracsValue::Carac(CaracKind::Special(ref s)) = target_line.0
+        {
+            eprintln!(r"/!\ Unrecognised target in the input: `{}`", s);
+        }
+    }
+
     let best =
-        optimize_character(Character::new(&sets), 32, &target, &equipements)
+        optimize_character(Character::new(&sets), 8, &target, &equipements)
             .into_iter()
             .max_by(|c1, c2| {
                 let eval1 = eval_character(c1, &target);
                 let eval2 = eval_character(c2, &target);
                 eval1.partial_cmp(&eval2).unwrap_or_else(|| {
-                    println!("{} incomparable à {}", eval1, eval2);
+                    println!(r"/!\ {} can't be compared to {}", eval1, eval2);
                     std::cmp::Ordering::Equal
                 })
             });

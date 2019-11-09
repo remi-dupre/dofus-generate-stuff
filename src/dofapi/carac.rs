@@ -56,32 +56,39 @@ pub enum CaracKind {
 }
 
 impl CaracKind {
-    pub fn smithmage_weight(&self) -> f64 {
+    pub fn smithmage_weight(&self) -> Result<f64, ()> {
         use CaracKind::*;
-        match self {
-            Vitality => 1. / 5.,
-            Stats(_) => 1.,
-            Initiative => 1. / 10.,
-            Wisdom => 3.,
-            Prospecting => 3.,
-            Power => 2.,
-            Resistance(_) => 2.,
-            PerResistance(_) => 6.,
-            PushbackResistance | CriticalResistance => 2.,
-            APResistance | APReduction | MPReduction | MPResistance => 7.,
-            Pods => 2.5 / 10.,
-            Lock | Dodge => 4.,
-            RawDamage => 20.,
-            Damage(_) | CriticalDamage | PushbackDamage | TrapDamage => 5.,
-            PerMeleeDamage | PerMeleeResistance | PerRangedDamage
-            | PerRangedResistance | PerWeaponDamage | PerSpellDamage => 15.,
-            TrapPower => 2.,
-            Heals | Critical | ReflectDamage => 10.,
-            Summons => 30.,
-            Range => 50.,
-            MP => 90.,
-            AP => 100.,
-            Special(_) => 0.,
+
+        if let Special(_) = self {
+            Err(())
+        } else {
+            Ok(match self {
+                Vitality => 1. / 5.,
+                Stats(_) => 1.,
+                Initiative => 1. / 10.,
+                Wisdom => 3.,
+                Prospecting => 3.,
+                Power => 2.,
+                Resistance(_) => 2.,
+                PerResistance(_) => 6.,
+                PushbackResistance | CriticalResistance => 2.,
+                APResistance | APReduction | MPReduction | MPResistance => 7.,
+                Pods => 2.5 / 10.,
+                Lock | Dodge => 4.,
+                RawDamage => 20.,
+                Damage(_) | CriticalDamage | PushbackDamage | TrapDamage => 5.,
+                PerMeleeDamage | PerMeleeResistance | PerRangedDamage
+                | PerRangedResistance | PerWeaponDamage | PerSpellDamage => {
+                    15.
+                }
+                TrapPower => 2.,
+                Heals | Critical | ReflectDamage => 10.,
+                Summons => 30.,
+                Range => 50.,
+                MP => 90.,
+                AP => 100.,
+                Special(_) => unreachable!(),
+            })
         }
     }
 }

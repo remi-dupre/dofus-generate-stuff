@@ -1,11 +1,4 @@
 [
-  [{"Carac": "AP"}, 11],
-  [{"Carac": "MP"}, 6],
-  [{"PowStats": "Air"}, 1500],
-  [{"MeanExtraDamage": "Air"}, 200],
-  [{"Carac": "Critical"}, 30],
-  [{"Carac": "MP Resistance"}, 60],
-  [{"Carac": "AP Resistance"}, 60],
-  ["Resiliance", 6000],
-  ["PerResVariance", 0]
+  ["Resiliance", 20000],
+  [{"Carac": "APResistance"}, 50]
 ]

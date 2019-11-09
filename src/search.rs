@@ -62,23 +62,21 @@ pub fn eval_character(
     let targets_weight: f64 = target
         .iter()
         .map(|(target_type, target_val)| {
-            let val = caracs.eval(target_type);
-            let width = 100. / target_type.approx_smithmage_weight();
-            let invert = if target_type.is_decreasing() { -1. } else { 1. };
-            let ret = target_min(
-                f64::from(*target_val) * invert,
-                width,
-                val * invert,
-            );
-            if ret.is_nan() {
-                println!(
-                    "{:?} {} {}",
-                    target_type,
-                    val,
-                    target_type.approx_smithmage_weight()
+            if let Ok(smithmage_weight) = target_type.approx_smithmage_weight()
+            {
+                let val = caracs.eval(target_type);
+                let width = 100. / smithmage_weight;
+                let invert =
+                    if target_type.is_decreasing() { -1. } else { 1. };
+                let ret = target_min(
+                    f64::from(*target_val) * invert,
+                    width,
+                    val * invert,
                 );
+                ret
+            } else {
+                1.
             }
-            ret
         })
         .product();
 

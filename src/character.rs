@@ -424,7 +424,7 @@ impl<'i> Character<'i> {
                 let current = caracs.get_carac(kind);
 
                 if current.cmp(target) != *order {
-                    kind.smithmage_weight()
+                    kind.smithmage_weight().unwrap_or(0.)
                         * f64::from((current - target).abs() + 1)
                 } else {
                     0.
@@ -438,7 +438,7 @@ impl<'i> Character<'i> {
                     .sum();
 
                 if count_synergies > 2 {
-                    CaracKind::AP.smithmage_weight()
+                    CaracKind::AP.smithmage_weight().unwrap()
                         * f64::from(count_synergies - 2)
                 } else {
                     0.
@@ -627,22 +627,24 @@ pub enum RawCaracsValue {
 }
 
 impl RawCaracsValue {
-    pub fn approx_smithmage_weight(&self) -> f64 {
-        match self {
-            RawCaracsValue::Carac(kind) => kind.smithmage_weight(),
+    pub fn approx_smithmage_weight(&self) -> Result<f64, ()> {
+        Ok(match self {
+            RawCaracsValue::Carac(kind) => kind.smithmage_weight()?,
             RawCaracsValue::Resiliance => {
-                0.75 * CaracKind::Vitality.smithmage_weight()
+                0.75 * CaracKind::Vitality.smithmage_weight().unwrap()
             }
             RawCaracsValue::PowStats(elem) => {
-                CaracKind::Stats(*elem).smithmage_weight()
+                CaracKind::Stats(*elem).smithmage_weight().unwrap()
             }
             RawCaracsValue::MeanExtraDamage(elem) => {
-                CaracKind::Damage(*elem).smithmage_weight()
+                CaracKind::Damage(*elem).smithmage_weight().unwrap()
             }
             RawCaracsValue::PerResVariance => {
-                CaracKind::PerResistance(Element::Neutral).smithmage_weight()
+                CaracKind::PerResistance(Element::Neutral)
+                    .smithmage_weight()
+                    .unwrap()
             }
-        }
+        })
     }
 
     pub fn is_decreasing(&self) -> bool {
