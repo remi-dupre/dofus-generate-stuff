@@ -260,6 +260,7 @@ impl From<HashMap<CaracKind, RangeInclusive<i16>>> for CaracLines {
     }
 }
 
+#[allow(clippy::implicit_hasher)]
 impl From<CaracLines> for HashMap<CaracKind, RangeInclusive<i16>> {
     fn from(caracs: CaracLines) -> Self {
         let CaracLines(map) = caracs;

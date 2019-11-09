@@ -68,12 +68,7 @@ pub fn eval_character(
                 let width = 100. / smithmage_weight;
                 let invert =
                     if target_type.is_decreasing() { -1. } else { 1. };
-                let ret = target_min(
-                    f64::from(*target_val) * invert,
-                    width,
-                    val * invert,
-                );
-                ret
+                target_min(*target_val * invert, width, val * invert)
             } else {
                 1.
             }

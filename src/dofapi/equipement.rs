@@ -112,10 +112,10 @@ impl Equipement {
 /// This will infer it by finding out if a trophy is strictly better than
 /// another one in the database.
 pub fn fix_all_trophy(db: &mut [Equipement]) {
-    let trophy_list: Vec<_> = db
-        .into_iter()
+    let trophy_list: Vec<Equipement> = db
+        .iter()
         .filter(|item| item.item_type == ItemType::Trophy)
-        .map(|item| item.clone())
+        .cloned()
         .collect();
 
     db.iter_mut()

@@ -73,9 +73,10 @@ impl Condition {
         let mut clauses = cond1.into_clauses();
         for next_clause in cond2.into_clauses() {
             // If the clause is weaker than current expression abort insertion
-            if clauses.iter().any(|prev_clause| {
+            let next_is_weaker = clauses.iter().any(|prev_clause| {
                 clause_stronger_than(prev_clause, &next_clause)
-            }) {
+            });
+            if next_is_weaker {
                 continue;
             }
 
