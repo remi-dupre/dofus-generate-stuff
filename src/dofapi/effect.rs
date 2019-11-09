@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::ops::RangeInclusive;
 
 //  _____ _                           _
 // | ____| | ___ _ __ ___   ___ _ __ | |_
@@ -16,6 +17,16 @@ pub enum Element {
     Neutral,
 }
 
+impl Element {
+    /// Return the element that boosts the damages applied in this element.
+    pub fn effective_stat(&self) -> Element {
+        match self {
+            Self::Neutral => Self::Earth,
+            _ => *self,
+        }
+    }
+}
+
 //  ____                                   _     _
 // |  _ \  __ _ _ __ ___   __ _  __ _  ___| |   (_)_ __   ___
 // | | | |/ _` | '_ ` _ \ / _` |/ _` |/ _ \ |   | | '_ \ / _ \
@@ -24,9 +35,32 @@ pub enum Element {
 //                              |___/
 
 #[derive(Debug, Deserialize)]
-pub struct DamageLine {
-    pub element:   Element,
-    pub min:       i64,
-    pub max:       i64,
-    pub lifesteal: bool,
+pub enum Effect {
+    Hit {
+        element: Element,
+        bounds:  RangeInclusive<u8>,
+
+        #[serde(default = "default_spell_lifesteal")]
+        lifesteal: bool,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SpellEffects {
+    pub effect: Vec<Effect>,
+
+    #[serde(default = "default_spell_critical")]
+    pub critical: u8,
+
+    #[serde(default)]
+    pub critical_effect: Vec<Effect>,
+}
+
+/// Default spell critical chances.
+fn default_spell_critical() -> u8 {
+    5
+}
+
+fn default_spell_lifesteal() -> bool {
+    false
 }

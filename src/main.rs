@@ -174,7 +174,6 @@ fn main() -> io::Result<()> {
                 .filter_map(|slot| slot.get_item())
                 .for_each(|item| println!(" {:^46}  {}", item.name, item.url));
             println!("------------------------------------------------");
-
             let stats = &[
                 CaracKind::AP,
                 CaracKind::MP,
@@ -203,20 +202,25 @@ fn main() -> io::Result<()> {
                 CaracKind::PerResistance(Element::Water),
                 CaracKind::PerResistance(Element::Neutral),
             ];
-
             let caracs = character.get_caracs();
             for stat in stats {
                 println!(" {:35} {:>10}", stat, caracs.get_carac(stat));
             }
+            println!("------------------------------------------------");
+            for (target, val) in input.target {
+                println!(
+                    " - {:?}: {} / {}",
+                    target,
+                    character.get_caracs().eval(&target),
+                    val
+                );
+            }
+            println!("------------------------------------------------");
             println!("\nstats: {:?}", character.base_stats);
             println!(
                 "conditions ({}): {:?}",
                 character.condition_overflow(&character.all_conditions()),
                 character.all_conditions()
-            );
-            println!(
-                "\nstats: {:?}",
-                caracs.eval(&character::RawCaracsValue::PerResVariance)
             );
         }
     }

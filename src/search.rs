@@ -5,7 +5,7 @@ use crate::character::{Character, RawCaracsValue};
 use crate::dofapi::{CaracKind, Element, Equipement};
 use crate::rls::rls;
 
-const STEPS: u32 = 100_000;
+const STEPS: u32 = 1_000_000;
 const ASSIGNABLE_CARACS: &[CaracKind] = &[
     CaracKind::Vitality,
     CaracKind::Wisdom,
@@ -50,7 +50,7 @@ pub fn eval_character(
     target: &[(RawCaracsValue, f64)],
 ) -> f64 {
     let target_min = |target: f64, width: f64, x: f64| -> f64 {
-        1. / (1. + (-(x + width - target) / width).exp())
+        1. / (1. + (-4. * (x + width - target) / width).exp())
     };
 
     let target_zero = |width: f64, x: f64| -> f64 {

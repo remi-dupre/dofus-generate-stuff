@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fmt;
 
 use serde::{de, Deserialize, Deserializer};
@@ -123,18 +122,31 @@ pub fn fix_all_trophy(db: &mut [Equipement]) {
         .for_each(|item| {
             // A trophy is unique if no other trophy covers all its positive
             // bonuses.
-            let is_unique = !trophy_list
+            let has_no_malus = item
+                .statistics
+                .as_map()
                 .iter()
-                .filter(|other| other.level == item.level)
-                .any(|other| {
-                    let other_lines: HashSet<_> =
-                        other.statistics.as_map().keys().collect();
-                    item.statistics
-                        .as_map()
-                        .iter()
-                        .filter(|(_kind, bounds)| *bounds.start() >= 0)
-                        .all(|(kind, _bounds)| other_lines.contains(kind))
-                });
+                .all(|(_, bounds)| *bounds.start() >= 0);
+
+            let is_unique = has_no_malus
+                && trophy_list
+                    .iter()
+                    .filter(|other| other._id != item._id)
+                    .filter(|other| other.level == item.level)
+                    .all(|other| {
+                        item.statistics
+                            .as_map()
+                            .iter()
+                            .filter(|(_kind, bounds)| *bounds.start() >= 0)
+                            .any(|(kind, _bounds)| {
+                                other
+                                    .statistics
+                                    .as_map()
+                                    .get(kind)
+                                    .map(|bounds| *bounds.end() < 0)
+                                    .unwrap_or(true)
+                            })
+                    });
 
             // A trophy is strong if it is unique or better than another trophy
             let is_strong = is_unique

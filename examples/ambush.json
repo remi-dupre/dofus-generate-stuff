@@ -1,0 +1,28 @@
+{
+    "level": 200,
+    "target": [
+        [{"Carac": "AP"}, 11],
+        [{"Carac": "MP"}, 6],
+        ["Resiliance", 4000],
+        [
+            {
+                "MeanDamage": {
+                    "critical": 5,
+                    "effect": [
+                        {"Hit": {"element": "Air", "bounds": [10, 12]}},
+                        {"Hit": {"element": "Earth", "bounds": [10, 12]}},
+                        {"Hit": {"element": "Fire", "bounds": [10, 12]}},
+                        {"Hit": {"element": "Water", "bounds": [10, 12]}}
+                    ],
+                    "critical_effect": [
+                        {"Hit": {"element": "Air", "bounds": [12, 14]}},
+                        {"Hit": {"element": "Earth", "bounds": [12, 14]}},
+                        {"Hit": {"element": "Fire", "bounds": [12, 14]}},
+                        {"Hit": {"element": "Water", "bounds": [12, 14]}}
+                    ]
+                }
+            },
+            3000
+        ]
+    ]
+}

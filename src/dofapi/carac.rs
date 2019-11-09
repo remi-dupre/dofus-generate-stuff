@@ -233,8 +233,9 @@ impl CaracLines {
             // Check if all stats of `other` are covered by this item.
             self.as_map()
                 .get(kind)
-                .map(|self_bounds| self_bounds.start() >= other_bounds.end())
-                .unwrap_or(*other_bounds.end() <= 0)
+                .map(|self_bounds| self_bounds.start())
+                .unwrap_or(&0)
+                >= other_bounds.end()
         }) && self.as_map().iter().all(|(kind, self_bounds)| {
             // Check if all stats of this item are covered by `other`.
             // This is required since there may be some negative values in this
@@ -242,8 +243,9 @@ impl CaracLines {
             other
                 .as_map()
                 .get(kind)
-                .map(|other_bounds| self_bounds.start() >= other_bounds.end())
-                .unwrap_or(*self_bounds.start() >= 0)
+                .map(|other_bounds| other_bounds.end())
+                .unwrap_or(&0)
+                <= self_bounds.start()
         })
     }
 }

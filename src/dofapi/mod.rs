@@ -6,7 +6,7 @@ mod set;
 
 pub use carac::{CaracKind, CaracLines};
 pub use condition::{Condition, ConditionAtom};
-pub use effect::{DamageLine, Element};
+pub use effect::{Effect, Element, SpellEffects};
 pub use equipement::{Equipement, ItemType};
 pub use set::Set;
 

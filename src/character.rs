@@ -4,7 +4,8 @@ use std::convert::TryInto;
 use serde::Deserialize;
 
 use crate::dofapi::{
-    CaracKind, Condition, ConditionAtom, Element, Equipement, ItemType, Set,
+    CaracKind, Condition, ConditionAtom, Effect, Element, Equipement,
+    ItemType, Set, SpellEffects,
 };
 
 #[derive(Clone, Debug)]
@@ -548,15 +549,10 @@ impl RawCaracs<'_> {
     pub fn eval(&self, value: &RawCaracsValue) -> f64 {
         match value {
             RawCaracsValue::Carac(carac) => self.get_carac(carac) as f64,
-            RawCaracsValue::PowStats(elem) => match elem {
-                Element::Neutral => {
-                    self.eval(&RawCaracsValue::PowStats(Element::Earth))
-                }
-                _ => {
-                    self.get_carac(&CaracKind::Stats(*elem)) as f64
-                        + self.get_carac(&CaracKind::Power) as f64
-                }
-            },
+            RawCaracsValue::PowStats(elem) => {
+                self.get_carac(&CaracKind::Stats(elem.effective_stat())) as f64
+                    + self.get_carac(&CaracKind::Power) as f64
+            }
             RawCaracsValue::MeanExtraDamage(elem) => {
                 self.mean_extra_damage(*elem)
             }
@@ -576,6 +572,9 @@ impl RawCaracs<'_> {
                 (square_diffs.sum::<f64>() / 5.).sqrt()
             }
             RawCaracsValue::Resiliance => self.resiliance(),
+            RawCaracsValue::MeanDamage(effects) => {
+                self.mean_weapon_damage(effects, true)
+            }
         }
     }
 
@@ -602,10 +601,87 @@ impl RawCaracs<'_> {
     }
 
     pub fn mean_extra_damage(&self, element: Element) -> f64 {
-        let base_dmg = self.get_carac(&CaracKind::Damage(element)) as f64;
-        let critical = self.get_carac(&CaracKind::Critical) as f64;
-        let crit_dmg = self.get_carac(&CaracKind::CriticalDamage) as f64;
+        let base_dmg: f64 = self.get_carac(&CaracKind::Damage(element)).into();
+        let critical: f64 = (10 + self.get_carac(&CaracKind::Critical)).into();
+        let crit_dmg: f64 = self.get_carac(&CaracKind::CriticalDamage).into();
         base_dmg + (crit_dmg * critical / 100.)
+    }
+
+    pub fn mean_effect_damage(
+        &self,
+        effect: &Effect,
+        is_crit: bool,
+        is_spell: bool,
+        is_dist: bool,
+    ) -> f64 {
+        match effect {
+            Effect::Hit {
+                element, bounds, ..
+            } => {
+                let mut damage: f64 = self
+                    .eval(&RawCaracsValue::PowStats(element.effective_stat()))
+                    * (f64::from(*bounds.start()) + f64::from(*bounds.end()))
+                    / 200.;
+
+                damage +=
+                    f64::from(self.get_carac(&CaracKind::Damage(*element)));
+
+                if is_crit {
+                    damage +=
+                        f64::from(self.get_carac(&CaracKind::CriticalDamage));
+                }
+
+                if is_spell {
+                    damage *= 1.
+                        + f64::from(
+                            self.get_carac(&CaracKind::PerSpellDamage),
+                        ) / 100.;
+                } else {
+                    damage *= 1.
+                        + f64::from(
+                            self.get_carac(&CaracKind::PerWeaponDamage),
+                        ) / 100.;
+                }
+
+                if is_dist {
+                    damage *= 1.
+                        + f64::from(
+                            self.get_carac(&CaracKind::PerRangedDamage),
+                        ) / 100.
+                } else {
+                    damage *= 1.
+                        + f64::from(self.get_carac(&CaracKind::PerMeleeDamage))
+                            / 100.
+                }
+
+                damage
+            }
+        }
+    }
+
+    pub fn mean_weapon_damage(
+        &self,
+        effects: &SpellEffects,
+        is_dist: bool,
+    ) -> f64 {
+        let mean_dmg_nocrit: f64 = effects
+            .effect
+            .iter()
+            .map(|effect| {
+                self.mean_effect_damage(effect, false, false, is_dist)
+            })
+            .sum();
+        let mean_dmg_crit: f64 = effects
+            .critical_effect
+            .iter()
+            .map(|effect| {
+                self.mean_effect_damage(effect, true, false, is_dist)
+            })
+            .sum();
+        let crit: f64 = f64::from(
+            i16::from(effects.critical) + self.get_carac(&CaracKind::Critical),
+        ) / 100.;
+        (1. - crit) * mean_dmg_nocrit + crit * mean_dmg_crit
     }
 }
 
@@ -622,6 +698,7 @@ pub enum RawCaracsValue {
     Carac(CaracKind),
     PowStats(Element),
     MeanExtraDamage(Element),
+    MeanDamage(SpellEffects),
     PerResVariance,
     Resiliance,
 }
@@ -643,6 +720,9 @@ impl RawCaracsValue {
                 CaracKind::PerResistance(Element::Neutral)
                     .smithmage_weight()
                     .unwrap()
+            }
+            RawCaracsValue::MeanDamage(_) => {
+                CaracKind::Vitality.smithmage_weight().unwrap()
             }
         })
     }
