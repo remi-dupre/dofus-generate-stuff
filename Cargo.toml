@@ -1,5 +1,5 @@
 [package]
-name = "dofus-stuff"
+name = "dofus-generate-stuff"
 version = "0.1.0"
 authors = ["Rémi Dupré <remim.dupre@gmail.com>"]
 edition = "2018"

@@ -1,6 +1,8 @@
 Dofus Generate Stuff
 ====================
 
+[![Build Status](https://travis-ci.com/remi-dupre/dofus-generate-stuff.svg?branch=master)](https://travis-ci.com/remi-dupre/dofus-generate-stuff)
+
 Generate Dofus stuffs based on input requirements using a randomized local
 search.
 

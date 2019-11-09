@@ -1,0 +1,35 @@
+language: rust
+rust:
+ - stable
+ - beta
+
+install:
+ - rustup install nightly               # using nightly features of rustfmt
+
+before_script:
+ - rustup component add clippy
+ - rustup component add rustfmt --toolchain nightly
+
+script:
+ - cargo check
+ - cargo clippy -- -D warnings
+ - cargo +nightly fmt --all -- --check
+
+before_deploy:
+ - cargo build --release
+ - ./download_data.sh
+ - mkdir dofus-generate-stuff \
+    && cp target/release/dofus-generate-stuff dofus-generate-stuff \
+    && cp -r data dofus-generate-stuff
+ - tar -czf dofus-generate-stuff.tar.gz dofus-generate-stuff
+
+deploy:
+  provider: releases
+  api_key: $GITHUB_TOKEN
+  file:
+   - target/release/dofus-generate-stuff
+  skip_cleanup: true
+  on:
+    tags: true
+    repo: remi-dupre/dofus-generate-stuff
+    condition: $TRAVIS_RUST_VERSION = stable
