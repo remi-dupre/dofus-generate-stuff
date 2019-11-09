@@ -20,7 +20,7 @@ before_deploy:
  - cargo build --release
  - mkdir dofus-generate-stuff
     && cp target/release/dofus-generate-stuff dofus-generate-stuff
-    && cp -r data dofus-generate-stuff
+    && cp -r data examples dofus-generate-stuff
  - tar -czf dofus-generate-stuff.tar.gz dofus-generate-stuff
 
 cache:
