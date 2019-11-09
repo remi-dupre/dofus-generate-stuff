@@ -5,7 +5,7 @@ use crate::character::{Character, RawCaracsValue};
 use crate::dofapi::{CaracKind, Element, Equipement};
 use crate::rls::rls;
 
-const STEPS: u32 = 1_000_000;
+const STEPS: u32 = 100_000;
 const ASSIGNABLE_CARACS: &[CaracKind] = &[
     CaracKind::Vitality,
     CaracKind::Wisdom,

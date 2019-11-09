@@ -22,6 +22,7 @@ use crate::dofapi::{fix_all_trophy, CaracKind, Element, Equipement, Set};
 use crate::input::InputRequest;
 use crate::search::{eval_character, optimize_character};
 
+/// List of files containing the list of equipements.
 const EQUIPEMENT_FILES: [&str; 4] = [
     "./data/equipments.json",
     "./data/mounts.json",
@@ -29,13 +30,28 @@ const EQUIPEMENT_FILES: [&str; 4] = [
     "./data/weapons.json",
 ];
 
+/// File containing the list of sets.
+const SET_FILE: &str = "./data/sets.json";
+
+/// Default file to read as input when no parameter is specified.
+const DEFAULT_INPUT_PATH: &str = "input.json";
+
 fn main() -> io::Result<()> {
     // --- Open item database
     eprintln!("-- Loading data...");
 
     let sets: HashMap<u64, Set> = {
-        let file = File::open("./data/sets.json")?;
-        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
+        let file = File::open(SET_FILE).unwrap_or_else(|err| {
+            panic!(
+                "Could not open `{}`, make sure you downloaded the item \
+                 database: {}",
+                SET_FILE, err
+            )
+        });
+        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))
+            .unwrap_or_else(|err| {
+                panic!("Could not parse `{}`: {}", SET_FILE, err)
+            });
         vec.into_iter().map(|set: Set| (set._id, set)).collect()
     };
 
@@ -44,8 +60,8 @@ fn main() -> io::Result<()> {
         .map(|path| {
             let file = File::open(path).unwrap_or_else(|err| {
                 panic!(
-                    "Error trying to open `{}`, make sure you downloaded the \
-                     item database: {}",
+                    "Could not open `{}`, make sure you downloaded the item \
+                     database: {}",
                     path, err
                 )
             });
@@ -94,10 +110,21 @@ fn main() -> io::Result<()> {
         .collect();
 
     // --- Read output and generate appropriate stuff and character.
-    println!("-- Reading input...");
+    eprintln!("-- Reading input...");
+
+    let input_path = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| DEFAULT_INPUT_PATH.into());
+
     let input: InputRequest = {
-        let file = File::open("input.json")?;
-        serde_json::from_reader(io::BufReader::new(file))?
+        let file = File::open(&input_path).unwrap_or_else(|err| {
+            panic!("Could not open input file `{}`: {}", input_path, err)
+        });
+        serde_json::from_reader(io::BufReader::new(file)).unwrap_or_else(
+            |err| {
+                panic!("Could not parse input file `{}`: {}", input_path, err)
+            },
+        )
     };
 
     let filtered_equipements: Vec<_> = equipements
