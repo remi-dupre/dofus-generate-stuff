@@ -92,7 +92,7 @@ fn main() -> io::Result<()> {
         .collect();
 
     // ---
-    eprintln!("-- Build random stuffs...");
+    eprintln!("-- Building random stuffs...");
 
     let target: Vec<(RawCaracsValue, f64)> = {
         let file = File::open("input.json")?;
@@ -128,9 +128,7 @@ fn main() -> io::Result<()> {
                 .item_slots
                 .iter()
                 .filter_map(|slot| slot.get_item())
-                .for_each(|item| {
-                    println!(" {:^46}   {}", item.name, item.url)
-                });
+                .for_each(|item| println!(" {:^46}  {}", item.name, item.url));
             println!("------------------------------------------------");
 
             let stats = &[
