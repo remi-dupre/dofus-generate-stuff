@@ -18,8 +18,8 @@ script:
 before_deploy:
  - if [ ! -d data/sets.json ]; then ./download_data.sh; fi
  - cargo build --release
- - mkdir dofus-generate-stuff \
-    && cp target/release/dofus-generate-stuff dofus-generate-stuff \
+ - mkdir dofus-generate-stuff
+    && cp target/release/dofus-generate-stuff dofus-generate-stuff
     && cp -r data dofus-generate-stuff
  - tar -czf dofus-generate-stuff.tar.gz dofus-generate-stuff
 
