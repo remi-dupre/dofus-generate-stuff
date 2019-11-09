@@ -1,5 +1,6 @@
 pub mod character;
 pub mod dofapi;
+pub mod input;
 pub mod rls;
 pub mod search;
 
@@ -18,10 +19,18 @@ use regex::Regex;
 
 use crate::character::{Character, RawCaracsValue};
 use crate::dofapi::{fix_all_trophy, CaracKind, Element, Equipement, Set};
+use crate::input::InputRequest;
 use crate::search::{eval_character, optimize_character};
 
+const EQUIPEMENT_FILES: [&str; 4] = [
+    "./data/equipments.json",
+    "./data/mounts.json",
+    "./data/pets.json",
+    "./data/weapons.json",
+];
+
 fn main() -> io::Result<()> {
-    // ---
+    // --- Open item database
     eprintln!("-- Loading data...");
 
     let sets: HashMap<u64, Set> = {
@@ -30,30 +39,28 @@ fn main() -> io::Result<()> {
         vec.into_iter().map(|set: Set| (set._id, set)).collect()
     };
 
-    let mut equipements: Vec<Equipement> = {
-        let file = File::open("./data/equipments.json")?;
-        serde_json::from_reader(io::BufReader::new(file))?
-    };
+    let mut equipements: Vec<Equipement> = EQUIPEMENT_FILES
+        .iter()
+        .map(|path| {
+            let file = File::open(path).unwrap_or_else(|err| {
+                panic!(
+                    "Error trying to open `{}`, make sure you downloaded the \
+                     item database: {}",
+                    path, err
+                )
+            });
+            serde_json::from_reader(io::BufReader::new(file)).unwrap_or_else(
+                |err| panic!("Could not parse `{}`: {}", path, err),
+            )
+        })
+        .fold(Vec::new(), |mut acc, db: Vec<_>| {
+            acc.extend(db);
+            acc
+        });
 
-    equipements.extend({
-        let file = File::open("./data/mounts.json")?;
-        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
-        vec
-    });
-
-    equipements.extend({
-        let file = File::open("./data/pets.json")?;
-        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
-        vec
-    });
-
-    equipements.extend({
-        let file = File::open("./data/weapons.json")?;
-        let vec: Vec<_> = serde_json::from_reader(io::BufReader::new(file))?;
-        vec
-    });
-
+    // --- Fix broken elements of the database
     fix_all_trophy(&mut equipements);
+
     let equipements: Vec<Equipement> = equipements
         .into_iter()
         .map(|mut item| {
@@ -86,39 +93,49 @@ fn main() -> io::Result<()> {
         })
         .collect();
 
-    let equipements: Vec<_> = equipements
-        .into_iter()
-        .filter(|item| item.level <= 200)
-        .collect();
-
-    // ---
-    eprintln!("-- Building random stuffs...");
-
-    let target: Vec<(RawCaracsValue, f64)> = {
+    // --- Read output and generate appropriate stuff and character.
+    println!("-- Reading input...");
+    let input: InputRequest = {
         let file = File::open("input.json")?;
         serde_json::from_reader(io::BufReader::new(file))?
     };
 
-    for target_line in &target {
+    let filtered_equipements: Vec<_> = equipements
+        .iter()
+        .filter(|item| item.level <= input.level)
+        .filter(|item| !input.banned_types.contains(&item.item_type))
+        .cloned()
+        .collect();
+
+    let init_character = Character::new(input.level, &sets);
+
+    for target_line in &input.target {
         if let RawCaracsValue::Carac(CaracKind::Special(ref s)) = target_line.0
         {
             eprintln!(r"/!\ Unrecognised target in the input: `{}`", s);
         }
     }
 
-    let best =
-        optimize_character(Character::new(&sets), 8, &target, &equipements)
-            .into_iter()
-            .max_by(|c1, c2| {
-                let eval1 = eval_character(c1, &target);
-                let eval2 = eval_character(c2, &target);
-                eval1.partial_cmp(&eval2).unwrap_or_else(|| {
-                    println!(r"/!\ {} can't be compared to {}", eval1, eval2);
-                    std::cmp::Ordering::Equal
-                })
-            });
+    // --- Build the stuff
+    eprintln!("-- Building random stuffs...");
 
-    // ---
+    let best = optimize_character(
+        init_character,
+        8,
+        &input.target,
+        &filtered_equipements,
+    )
+    .into_iter()
+    .max_by(|c1, c2| {
+        let eval1 = eval_character(c1, &input.target);
+        let eval2 = eval_character(c2, &input.target);
+        eval1.partial_cmp(&eval2).unwrap_or_else(|| {
+            println!(r"/!\ {} can't be compared to {}", eval1, eval2);
+            std::cmp::Ordering::Equal
+        })
+    });
+
+    // --- Show results
     eprintln!("-- Result...");
     match best {
         None => println!("No feasible stuff found :("),

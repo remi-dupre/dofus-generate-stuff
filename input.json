@@ -1,4 +1,17 @@
-[
-  ["Resiliance", 20000],
-  [{"Carac": "APResistance"}, 50]
-]
+{
+    "level": 180,
+    "banned_types": ["Trophy"],
+    "target": [
+        [{"Carac": "AP"}, 11],
+        [{"Carac": "MP"}, 6],
+        ["Resiliance", 4000],
+        [{"PowStats": "Air"}, 600],
+        [{"PowStats": "Earth"}, 600],
+        [{"PowStats": "Fire"}, 600],
+        [{"PowStats": "Water"}, 600],
+        [{"MeanExtraDamage": "Air"}, 150],
+        [{"MeanExtraDamage": "Earth"}, 150],
+        [{"MeanExtraDamage": "Fire"}, 150],
+        [{"MeanExtraDamage": "Water"}, 150]
+    ]
+}

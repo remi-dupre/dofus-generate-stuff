@@ -60,7 +60,7 @@ pub struct Character<'i> {
 }
 
 impl<'i> Character<'i> {
-    pub fn new(sets: &'i HashMap<u64, Set>) -> Self {
+    pub fn new(level: u8, sets: &'i HashMap<u64, Set>) -> Self {
         Character {
             item_slots: vec![
                 ItemSlot::new(&[ItemType::Hat]),
@@ -98,7 +98,7 @@ impl<'i> Character<'i> {
                 ItemSlot::new(&[ItemType::Dofus, ItemType::Trophy]),
             ],
             base_stats: HashMap::new(),
-            unspent: 995,
+            unspent: 5 * (u16::from(level) - 1),
             sets,
         }
     }

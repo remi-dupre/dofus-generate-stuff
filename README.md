@@ -7,14 +7,16 @@ Generate Dofus stuffs based on input requirements using a randomized local
 search.
 
 
-Usage
------
+Installation
+------------
+
+### From sources
 
 You can run the project quickly by using Cargo. You can change the default
 input located in `input.json`.
 
 ```bash
-./download_data.sh  # TODO
+./download_data.sh
 cargo run --release
 ```
 
