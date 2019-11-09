@@ -573,7 +573,7 @@ impl RawCaracs<'_> {
             }
             RawCaracsValue::Resiliance => self.resiliance(),
             RawCaracsValue::MeanDamage(effects) => {
-                self.mean_weapon_damage(effects, true)
+                self.mean_weapon_damage(effects)
             }
         }
     }
@@ -659,23 +659,29 @@ impl RawCaracs<'_> {
         }
     }
 
-    pub fn mean_weapon_damage(
-        &self,
-        effects: &SpellEffects,
-        is_dist: bool,
-    ) -> f64 {
+    pub fn mean_weapon_damage(&self, effects: &SpellEffects) -> f64 {
         let mean_dmg_nocrit: f64 = effects
             .effect
             .iter()
             .map(|effect| {
-                self.mean_effect_damage(effect, false, false, is_dist)
+                self.mean_effect_damage(
+                    effect,
+                    false,
+                    !effects.weapon,
+                    effects.ranged,
+                )
             })
             .sum();
         let mean_dmg_crit: f64 = effects
             .critical_effect
             .iter()
             .map(|effect| {
-                self.mean_effect_damage(effect, true, false, is_dist)
+                self.mean_effect_damage(
+                    effect,
+                    true,
+                    !effects.weapon,
+                    effects.ranged,
+                )
             })
             .sum();
         let crit: f64 = f64::from(

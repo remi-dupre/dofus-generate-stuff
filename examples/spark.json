@@ -1,0 +1,20 @@
+{
+    "level": 200,
+    "target": [
+        [
+            {
+                "MeanDamage": {
+                    "critical": 5,
+                    "ranged": true,
+                    "effect": [
+                        {"Hit": {"element": "Fire", "bounds": [8, 10]}}
+                    ],
+                    "critical_effect": [
+                        {"Hit": {"element": "Fire", "bounds": [11, 13]}}
+                    ]
+                }
+            },
+            1000
+        ]
+    ]
+}

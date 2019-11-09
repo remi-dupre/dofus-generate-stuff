@@ -50,7 +50,7 @@ pub fn eval_character(
     target: &[(RawCaracsValue, f64)],
 ) -> f64 {
     let target_min = |target: f64, width: f64, x: f64| -> f64 {
-        1. / (1. + (-4. * (x + width - target) / width).exp())
+        1. / (1. + (-4. * (x - target) / width).exp())
     };
 
     let target_zero = |width: f64, x: f64| -> f64 {
@@ -79,7 +79,7 @@ pub fn eval_character(
     let conflicts_weight = 0.1f64.powi(count_item_conflicts.into());
 
     let conditions_weight = target_zero(
-        800.,
+        200.,
         character.condition_overflow(&character.all_conditions()),
     );
 

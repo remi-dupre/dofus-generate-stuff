@@ -8,6 +8,7 @@
             {
                 "MeanDamage": {
                     "critical": 5,
+                    "ranged": true,
                     "effect": [
                         {"Hit": {"element": "Air", "bounds": [10, 12]}},
                         {"Hit": {"element": "Earth", "bounds": [10, 12]}},

@@ -40,7 +40,7 @@ pub enum Effect {
         element: Element,
         bounds:  RangeInclusive<u8>,
 
-        #[serde(default = "default_spell_lifesteal")]
+        #[serde(default)]
         lifesteal: bool,
     },
 }
@@ -48,6 +48,10 @@ pub enum Effect {
 #[derive(Debug, Deserialize)]
 pub struct SpellEffects {
     pub effect: Vec<Effect>,
+    pub ranged: bool,
+
+    #[serde(default = "default_false")]
+    pub weapon: bool,
 
     #[serde(default = "default_spell_critical")]
     pub critical: u8,
@@ -61,6 +65,6 @@ fn default_spell_critical() -> u8 {
     5
 }
 
-fn default_spell_lifesteal() -> bool {
+fn default_false() -> bool {
     false
 }

@@ -209,7 +209,7 @@ fn main() -> io::Result<()> {
             println!("------------------------------------------------");
             for (target, val) in input.target {
                 println!(
-                    " - {:?}: {} / {}",
+                    " - {:?}: {:.2} / {}",
                     target,
                     character.get_caracs().eval(&target),
                     val
@@ -221,6 +221,10 @@ fn main() -> io::Result<()> {
                 "conditions ({}): {:?}",
                 character.condition_overflow(&character.all_conditions()),
                 character.all_conditions()
+            );
+            println!(
+                "conflicts: {}",
+                character.condition_overflow(&character.all_conditions())
             );
         }
     }

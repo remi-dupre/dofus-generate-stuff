@@ -1,0 +1,41 @@
+{
+    "level": 200,
+    "target": [
+        [{"Carac": "AP"}, 12],
+        [{"Carac": "MP"}, 5],
+        ["Resiliance", 6000],
+        ["PerResVariance", 5],
+        [{"Carac": "AP Resistance"}, 50],
+        [{"Carac": "MP Resistance"}, 50],
+        [
+            {
+                "MeanDamage": {
+                    "critical": 25,
+                    "ranged": false,
+                    "effect": [
+                        {"Hit": {"element": "Earth", "bounds": [191, 210]}}
+                    ],
+                    "critical_effect": [
+                        {"Hit": {"element": "Earth", "bounds": [217, 240]}}
+                    ]
+                }
+            },
+            5000
+        ],
+        [
+            {
+                "MeanDamage": {
+                    "critical": 5,
+                    "ranged": false,
+                    "effect": [
+                        {"Hit": {"element": "Earth", "bounds": [20, 24]}}
+                    ],
+                    "critical_effect": [
+                        {"Hit": {"element": "Earth", "bounds": [24, 29]}}
+                    ]
+                }
+            },
+            500
+        ]
+    ]
+}
