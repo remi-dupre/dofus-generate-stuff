@@ -16,7 +16,7 @@ script:
  - cargo +nightly fmt --all -- --check
 
 before_deploy:
- - if [ ! -d data ]; then ./download_data; fi
+ - if [ ! -d data/sets.json ]; then ./download_data.sh; fi
  - cargo build --release
  - mkdir dofus-generate-stuff \
     && cp target/release/dofus-generate-stuff dofus-generate-stuff \
