@@ -18,23 +18,33 @@ script:
  - cargo +nightly fmt --all -- --check
 
 before_deploy:
- - cargo build --release
- - mkdir dofus-generate-stuff
-    && cp target/release/stuffer dofus-generate-stuff
-    && cp -r data examples dofus-generate-stuff
- - tar -czf dofus-generate-stuff.tar.gz dofus-generate-stuff
+ - cargo doc --no-deps --lib
+ - >
+   if [ -n "$TRAVIS_TAG" ]; then
+     cargo build --release
+     mkdir dofus-generate-stuff \
+       && cp target/release/stuffer dofus-generate-stuff \
+       && cp -r data examples dofus-generate-stuff
+     tar -czf dofus-generate-stuff.tar.gz dofus-generate-stuff
+   fi
 
 cache:
   directories:
    - data
 
 deploy:
-  provider: releases
-  api_key: $GITHUB_TOKEN
-  file:
-   - dofus-generate-stuff.tar.gz
-  skip_cleanup: true
-  on:
-    tags: true
-    repo: remi-dupre/dofus-generate-stuff
-    condition: $TRAVIS_RUST_VERSION = stable
+ - provider: pages
+   local_dir: target/doc
+   skip_cleanup: true
+   github_token: $GITHUB_TOKEN
+   on:
+     branch: master
+     condition: $TRAVIS_RUST_VERSION = stable
+ - provider: releases
+   api_key: $GITHUB_TOKEN
+   file: dofus-generate-stuff.tar.gz
+   skip_cleanup: true
+   on:
+     tags: true
+     repo: remi-dupre/dofus-generate-stuff
+     condition: $TRAVIS_RUST_VERSION = stable
