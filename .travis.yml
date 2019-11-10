@@ -9,7 +9,7 @@ install:
 before_script:
  - rustup component add clippy
  - rustup component add rustfmt --toolchain nightly
- - if [ ! -d data/sets.json ]; then ./download_data.sh; fi
+ - if [ ! -f data/sets.json ]; then ./download_data.sh; fi
 
 script:
  - cargo check
