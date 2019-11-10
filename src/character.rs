@@ -45,7 +45,7 @@ impl<'a, 'i> ItemSlot<'a, 'i> {
 //  \____|_| |_|\__,_|_|  \__,_|\___|\__\___|_|
 //
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum CharacterError<'c> {
     NotEnoughPoints,
     NotEnoughCaracs(&'c CaracKind),
@@ -174,8 +174,8 @@ impl<'i> Character<'i> {
     /// # Examples
     ///
     /// ```
-    /// use crate::dofapi::carac::CaracKind::*;
-    /// use crate::dofapi::effect::Element::*;
+    /// use dofus_stuff::character::*;
+    /// use dofus_stuff::dofapi::{CaracKind::*, Element::*};
     ///
     /// assert_eq!(Character::carac_cost_from_zero(&Wisdom, 100), 300);
     /// assert_eq!(Character::carac_cost_from_zero(&Stats(Air), 100), 100);
@@ -204,16 +204,19 @@ impl<'i> Character<'i> {
     /// # Examples
     ///
     /// ```
-    /// use crate::dofapi::carac::CaracKind::*;
-    /// use crate::dofapi::effect::Element::*;
+    /// # use std::collections::HashMap;
+    /// use dofus_stuff::character::*;
+    /// use dofus_stuff::dofapi::{CaracKind::*, Element::*};
     ///
-    /// let mut character = Character::new();
+    /// let db_sets = HashMap::new();
+    /// let mut character = Character::new(200, &db_sets);
+    ///
     /// assert_eq!(character.carac_spend_cost(&Stats(Air), 100), 100);
     /// assert_eq!(character.carac_spend_cost(&Stats(Air), 150), 200);
     ///
-    /// character.carac_spend(&Stats(Air), 200).unwrap();
+    /// character.carac_spend(&Stats(Air), 100).unwrap();
     /// assert_eq!(character.carac_spend_cost(&Stats(Air), 50), 100);
-    /// assert_eq!(character.carac_spend_cost(&Stats(Air), 150), 400);
+    /// assert_eq!(character.carac_spend_cost(&Stats(Air), 150), 350);
     /// ```
     pub fn carac_spend_cost(&self, kind: &CaracKind, amount: u16) -> u16 {
         let current = *self.base_stats.get(kind).unwrap_or(&0);
@@ -226,15 +229,17 @@ impl<'i> Character<'i> {
     /// # Examples
     ///
     /// ```
-    /// use crate::dofapi::carac::CaracKind::*;
-    /// use crate::dofapi::effect::Element::*;
+    /// # use std::collections::HashMap;
+    /// use dofus_stuff::character::*;
+    /// use dofus_stuff::dofapi::{CaracKind::*, Element::*};
     ///
-    /// let mut character = Character::new();
+    /// let db_sets = HashMap::new();
+    /// let mut character = Character::new(200, &db_sets);
     /// character.carac_spend(&Stats(Air), 200).unwrap();
     ///
-    /// assert_eq!(character.carac_unspend_recover(&Stats(Air), 100), Ok(200))
-    /// assert_eq!(character.carac_unspend_recover(&Stats(Air), 200), Ok(300))
-    /// assert!(character.carac_unspend_recover(&Stats(Air), 201).is_err())
+    /// assert_eq!(character.carac_unspend_recover(&Stats(Air), 100), Ok(200));
+    /// assert_eq!(character.carac_unspend_recover(&Stats(Air), 200), Ok(300));
+    /// assert!(character.carac_unspend_recover(&Stats(Air), 201).is_err());
     /// ```
     pub fn carac_unspend_recover(
         &self,
@@ -256,13 +261,15 @@ impl<'i> Character<'i> {
     /// # Examples
     ///
     /// ```
-    /// use crate::dofapi::carac::CaracKind::*;
-    /// use crate::dofapi::effect::Element::*;
+    /// # use std::collections::HashMap;
+    /// use dofus_stuff::character::*;
+    /// use dofus_stuff::dofapi::{CaracKind::*, Element::*};
     ///
-    /// let mut character = Character::new();
+    /// let db_sets = HashMap::new();
+    /// let mut character = Character::new(200, &db_sets);
     ///
-    /// assert!(character.carac_spend(Stats(Air), 100).is_ok());
-    /// assert!(character.carac_spend(Stats(Air), 400).is_err());
+    /// assert!(character.carac_spend(&Stats(Air), 100).is_ok());
+    /// assert!(character.carac_spend(&Stats(Air), 400).is_err());
     /// ```
     pub fn carac_spend(
         &mut self,
@@ -288,15 +295,17 @@ impl<'i> Character<'i> {
     /// # Examples
     ///
     /// ```
-    /// use crate::dofapi::carac::CaracKind::*;
-    /// use crate::dofapi::effect::Element::*;
+    /// # use std::collections::HashMap;
+    /// use dofus_stuff::character::*;
+    /// use dofus_stuff::dofapi::{CaracKind::*, Element::*};
     ///
-    /// let mut character = Character::new();
+    /// let db_sets = HashMap::new();
+    /// let mut character = Character::new(200, &db_sets);
     /// character.carac_spend(&Stats(Air), 200).unwrap();
     ///
-    /// assert_eq!(character.carac_unspend(Stats(Air), 100), Ok(100));
-    /// assert_eq!(character.carac_unspend(Stats(Air), 99), Ok(100));
-    /// assert!(character.carac_unspend(Stats(Air), 201).is_err());
+    /// assert_eq!(character.carac_unspend(&Stats(Air), 100), Ok(()));
+    /// assert_eq!(character.carac_unspend(&Stats(Air), 99), Ok(()));
+    /// assert!(character.carac_unspend(&Stats(Air), 201).is_err());
     /// ```
     pub fn carac_unspend(
         &mut self,
@@ -322,15 +331,17 @@ impl<'i> Character<'i> {
     /// # Examples
     ///
     /// ```
-    /// use crate::dofapi::carac::CaracKind::*;
-    /// use crate::dofapi::effect::Element::*;
+    /// # use std::collections::HashMap;
+    /// use dofus_stuff::character::*;
+    /// use dofus_stuff::dofapi::{CaracKind::*, Element::*};
     ///
-    /// let mut character = Character::new();
+    /// let db_sets = HashMap::new();
+    /// let mut character = Character::new(200, &db_sets);
     ///
     /// // Seek from unspent points
     /// assert!(
     ///     character
-    ///         .carac_spend_or_seek(&Stats(Air), 200, &Wisdom)
+    ///         .carac_spend_or_seek(&Stats(Air), 150, &Wisdom)
     ///         .is_ok()
     /// );
     /// assert!(

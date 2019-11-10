@@ -5,7 +5,7 @@ use crate::character::{Character, RawCaracsValue};
 use crate::dofapi::{CaracKind, Element, Equipement};
 use crate::rls::rls;
 
-const STEPS: u32 = 1_000_000;
+const STEPS: u32 = 100_000;
 const ASSIGNABLE_CARACS: &[CaracKind] = &[
     CaracKind::Vitality,
     CaracKind::Wisdom,
@@ -76,7 +76,7 @@ pub fn eval_character(
         .product();
 
     let count_item_conflicts = character.count_item_conflicts();
-    let conflicts_weight = 0.1f64.powi(count_item_conflicts.into());
+    let conflicts_weight = 0.05f64.powi(count_item_conflicts.into());
 
     let conditions_weight = target_zero(
         200.,

@@ -20,7 +20,7 @@ can download an archive containing both the binary and required item databases.
 wget https://github.com/remi-dupre/dofus-generate-stuff/releases/download/${VERSION}/dofus-generate-stuff.tar.gz
 tar -xf dofus-generate-stuff.tar.gz
 cd dofus-generate-stuff
-./dofus-generate-stuff examples/earth_iop.json
+./stuffer examples/earth_iop.json
 ```
 
 ### From sources
@@ -66,15 +66,15 @@ following kind of statistics:
 ```json
 {
     "level": 200,
-    "target", [
-      ["Resiliance", 10000],
-      [{"Carac": "Lock"}, 150],
-      [{"Carac": "AP"}, 11],
-      [{"Carac": "MP"}, 6],
-      [{"PowStats": "Air"}, 800],
-      [{"Carac": "MP Resistance"}, 70],
-      [{"Carac": "AP Resistance"}, 70],
-      [{"Carac": "AP Reduction"}, 100]
+    "target": [
+        ["Resiliance", 10000],
+        [{"Carac": "Lock"}, 150],
+        [{"Carac": "AP"}, 11],
+        [{"Carac": "MP"}, 6],
+        [{"PowStats": "Air"}, 800],
+        [{"Carac": "MP Resistance"}, 70],
+        [{"Carac": "AP Resistance"}, 70],
+        [{"Carac": "AP Reduction"}, 100]
     ]
 }
 ```

@@ -1,11 +1,6 @@
-pub mod character;
-pub mod dofapi;
-pub mod input;
-pub mod rls;
-pub mod search;
-
 #[macro_use]
 extern crate lazy_static;
+extern crate dofus_stuff;
 extern crate rand;
 extern crate rayon;
 extern crate regex;
@@ -17,10 +12,19 @@ use std::io;
 
 use regex::Regex;
 
-use crate::character::{Character, RawCaracsValue};
-use crate::dofapi::{fix_all_trophy, CaracKind, Element, Equipement, Set};
-use crate::input::InputRequest;
-use crate::search::{eval_character, optimize_character};
+use dofus_stuff::character::{Character, RawCaracsValue};
+use dofus_stuff::dofapi::{
+    fix_all_trophy, CaracKind, Element, Equipement, ItemType, Set,
+};
+use dofus_stuff::search::{eval_character, optimize_character};
+use serde::Deserialize;
+
+//   ____                _              _
+//  / ___|___  _ __  ___| |_ __ _ _ __ | |_ ___
+// | |   / _ \| '_ \/ __| __/ _` | '_ \| __/ __|
+// | |__| (_) | | | \__ \ || (_| | | | | |_\__ \
+//  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
+//
 
 /// List of files containing the list of equipements.
 const EQUIPEMENT_FILES: [&str; 4] = [
@@ -35,6 +39,33 @@ const SET_FILE: &str = "./data/sets.json";
 
 /// Default file to read as input when no parameter is specified.
 const DEFAULT_INPUT_PATH: &str = "input.json";
+
+//  ___                   _
+// |_ _|_ __  _ __  _   _| |_
+//  | || '_ \| '_ \| | | | __|
+//  | || | | | |_) | |_| | |_
+// |___|_| |_| .__/ \__,_|\__|
+//           |_|
+
+/// Input request for building a stuff.
+#[derive(Deserialize)]
+pub struct InputRequest {
+    /// Level of the character to build a stuff for.
+    #[serde(default = "default_level")]
+    pub level: u8,
+
+    /// Types of items that can't be used in the output.
+    #[serde(default)]
+    pub banned_types: Vec<ItemType>,
+
+    /// List of approximate expected statistics in the output.
+    pub target: Vec<(RawCaracsValue, f64)>,
+}
+
+/// Default level of a character.
+fn default_level() -> u8 {
+    200
+}
 
 fn main() -> io::Result<()> {
     // --- Open item database
