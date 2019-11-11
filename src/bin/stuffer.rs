@@ -59,6 +59,7 @@ pub struct InputRequest {
     pub banned_types: Vec<ItemType>,
 
     /// List of approximate expected statistics in the output.
+    #[serde(default)]
     pub target: Vec<(RawCaracsValue, f64)>,
 }
 

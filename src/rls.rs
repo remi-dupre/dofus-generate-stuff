@@ -18,7 +18,7 @@ where
 
     let (ret, _eval) = (1..=steps)
         .map(|step| {
-            lambda.powi(step.try_into().expect("`step` must fit in a i32"))
+            lambda.powi(step.try_into().expect("`steps` must fit in a i32"))
         })
         .fold((init, init_eval), |(curr, curr_eval), threshold| {
             let new = walk(curr.clone(), rng);
