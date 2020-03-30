@@ -1,5 +1,4 @@
 use rand::prelude::*;
-use rayon::prelude::*;
 
 use crate::character::{Character, RawCaracsValue};
 use crate::dofapi::{CaracKind, Element, Equipement};
@@ -88,10 +87,9 @@ pub fn eval_character(
 
 pub fn optimize_character<'i>(
     init: Character<'i>,
-    count: u64,
     target: &[(RawCaracsValue, f64)],
     db_equipements: &'i [Equipement],
-) -> Vec<Character<'i>> {
+) -> Character<'i> {
     // Reorder set into pools assigned to each slot
     let slot_pool: Vec<_> = init
         .item_slots
@@ -104,16 +102,11 @@ pub fn optimize_character<'i>(
         })
         .collect();
 
-    (0..count)
-        .into_par_iter()
-        .map_init(rand::thread_rng, |mut rng, _| {
-            rls(
-                init.clone(),
-                STEPS,
-                &mut rng,
-                |character| eval_character(character, target),
-                |character, rng| walk_character(&character, rng, &slot_pool),
-            )
-        })
-        .collect()
+    rls(
+        init,
+        STEPS,
+        &mut rand::thread_rng(),
+        |character| eval_character(character, target),
+        |character, rng| walk_character(&character, rng, &slot_pool),
+    )
 }
